@@ -1,0 +1,6 @@
+*.zip
+*.gzip
+*.parquet
+*.csv
+*.pickle
+*.pkl
