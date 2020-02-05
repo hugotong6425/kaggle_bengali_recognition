@@ -139,18 +139,16 @@ data_transforms = {
 
 # eff_b0
 
+from datetime import datetime
+now = datetime.now()
+current_time = now.strftime("%Y%m%d_%H%M%S")
+current_time
+
 # + run_control={"marked": true}
 import os
 import wandb
-os.environ['WANDB_NOTEBOOK_NAME'] = 'model_3_efficient_net'
-
-# WandB – Initialize a new run
-# use your own user/project name
-wandb.init(entity="noklam", project='bengali')
-# Re-run the model without restarting the runtime, unnecessary after our next release
-wandb.watch_called = False
-
-wandb.config = configs
+# os.environ['WANDB_NOTEBOOK_NAME'] = 'model_3_efficient_net'
+# %env WANDB_NOTEBOOK_NAME=model_3_efficient_net
 
 # +
 pretrain = configs['pretrain']
@@ -164,6 +162,13 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     MODEL_DIR = Path(f"../model_weights/eff_0_with_mixup_cutmix_alpha_0.1/fold_{i}")
     MODEL_DIR.mkdir(exist_ok=True)
 
+    # WandB – Initialize a new run
+    # use your own user/project name
+    wandb.init(entity="noklam", project='bengali',config=configs, group=current_time)
+    # Re-run the model without restarting the runtime, unnecessary after our next release
+    wandb.watch_called = False
+
+    
     # create model
     # eff_b0 = EfficientNet_grapheme(eff_version, pretrain)
     eff_b0 = EfficientNet_0(pretrain)
