@@ -9,7 +9,7 @@ from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm_notebook
 
 from hw_grapheme.loss_func import Loss_combine, cutmix_criterion, mixup_criterion
-
+import wandb
 
 ##### for mix up training
 def rand_bbox(size, lam):
@@ -112,7 +112,7 @@ def generate_stratified_k_fold_index(image_data, label_data, n_splits, random_se
 def train_phrase(
     model, optimizer, train_dataloader, 
     num_train, mixed_precision, mixup_alpha,
-    batch_scheduler=None,
+    batch_scheduler=None, wandb_log=True
 ):
     model.train()  # Set model to training mode
 
@@ -180,10 +180,16 @@ def train_phrase(
     vowel_acc = vowel_corrects.double() / num_train
     consonant_acc = consonant_corrects.double() / num_train
     
+    if wandb_log:
+        wandb.log({
+            "Training loss": train_loss,
+            "Training Root Accuracy": root_acc,
+            "Training Vowel Accuracy": vowel_acc,
+            "Training Consonant acc": consonant_acc})
     return train_loss, root_acc, vowel_acc, consonant_acc
 
 
-def validate_phrase(model, valid_dataloader, num_val):
+def validate_phrase(model, valid_dataloader, num_val, wandb_log=True):
     # Each epoch has a training and validation phase
     model.eval()   # Set model to evaluate mode
 
@@ -201,7 +207,7 @@ def validate_phrase(model, valid_dataloader, num_val):
 
         # forward
         # track history if only in train
-        with torch.set_grad_enabled(False):
+        with torch.no_grad():
             root_logit, vowel_logit, consonant_logit = model(images)
             loss = Loss_combine()((root_logit, vowel_logit, consonant_logit), root, vowel, consonant)
 
@@ -222,6 +228,12 @@ def validate_phrase(model, valid_dataloader, num_val):
     vowel_acc = vowel_corrects.double() / num_val
     consonant_acc = consonant_corrects.double() / num_val
 
+    if wandb_log:
+        wandb.log({
+            "Validation loss": val_loss,
+            "Validation Root Accuracy": root_acc,
+            "Validation Vowel Accuracy": vowel_acc,
+            "Validation Consonant acc": consonant_acc})
     return val_loss, root_acc, vowel_acc, consonant_acc
 
 
