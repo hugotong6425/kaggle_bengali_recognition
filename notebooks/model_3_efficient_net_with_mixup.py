@@ -1,7 +1,8 @@
+# -*- coding: utf-8 -*-
 # ---
 # jupyter:
 #   jupytext:
-#     formats: ipynb,py
+#     formats: ipynb,py:light
 #     text_representation:
 #       extension: .py
 #       format_name: light
@@ -16,14 +17,12 @@
 # %load_ext autoreload
 # %autoreload 2
 
-torchtools
-
 # +
 import csv
 import os
-
+from pathlib import Path
 import numpy as np
-import torch.optim as optima
+import torch.optim as optim
 from efficientnet_pytorch import EfficientNet
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
@@ -58,8 +57,6 @@ def imshow(inp, title=None):
     plt.pause(0.001)  # pause a bit so that plots are updated
 
 
-??load_data
-
 # +
 # load data 
 pickle_paths = [
@@ -74,16 +71,32 @@ image_data, name_data, label_data = load_data(pickle_paths)
 
 image_data[-5][100:110, 100:110]
 
+configs = {
+    "model": "efficient 0",
+    "pretrain": False,
+    "head_info": "1 fc",
+    "input_size": "224X224",
+    "optimizer": "adam",
+    "image_processing": "mixup, cutmix",
+    "cutmix/mixup alpha": 0.1,
+    'mixup_alpha' : 0.1,
+    'batch_size': 64,
+    'num_workers': 6,
+    'pin_memory': True,
+    'n_epoch': 120,
+    'n_splits': 5,
+    'random_seed': 2020,
+    'mix_precision': False
+}
+
 # +
-batch_size = 64
-num_workers = 6
-pin_memory = True
-n_epoch = 120
-
-n_splits = 5
-random_seed = 2020
-
-mixed_precision = False
+batch_size = configs['batch_size']
+num_workers = configs['num_workers'] 
+pin_memory = configs['pin_memory']
+n_epoch = configs['n_epoch']
+n_splits = configs['n_splits']
+random_seed = configs['random_seed']
+mixed_precision = configs['mix_precision']
 
 train_idx_list, test_idx_list = generate_stratified_k_fold_index(
     image_data, label_data, n_splits, random_seed
@@ -126,24 +139,33 @@ data_transforms = {
 
 # eff_b0
 
+# + run_control={"marked": true}
+import os
+import wandb
+os.environ['WANDB_NOTEBOOK_NAME'] = 'model_3_efficient_net'
 
+# WandB – Initialize a new run
+# use your own user/project name
+wandb.init(entity="noklam", project='bengali')
+# Re-run the model without restarting the runtime, unnecessary after our next release
+wandb.watch_called = False
 
-
-
-
+wandb.config = configs
 
 # +
-pretrain = False
+pretrain = configs['pretrain']
 # eff_version = "4"
-mixup_alpha = 0.1
+mixup_alpha = configs['mixup_alpha']
 
 for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     if i != 0:
         continue
     print(f"Training fold {i}")
-    
-    # create model 
-    # eff_b0 = EfficientNet_grapheme(eff_version, pretrain)    
+    MODEL_DIR = Path(f"../model_weights/eff_0_with_mixup_cutmix_alpha_0.1/fold_{i}")
+    MODEL_DIR.mkdir(exist_ok=True)
+
+    # create model
+    # eff_b0 = EfficientNet_grapheme(eff_version, pretrain)
     eff_b0 = EfficientNet_0(pretrain)
 
     #########################
@@ -153,23 +175,24 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
         eff_b0 = apex.parallel.DistributedDataParallel(eff_b0)
         eff_b0.to("cuda")
         eff_b0 = torch.nn.parallel.DistributedDataParallel(
-            eff_b0, device_ids=[0,1], output_device=0
+            eff_b0, device_ids=[0, 1], output_device=0
         )
-        eff_b0, optimizer_ft = amp.initialize(eff_b0, optimizer_ft, opt_level="O1")
+        eff_b0, optimizer_ft = amp.initialize(
+            eff_b0, optimizer_ft, opt_level="O1")
     else:
         eff_b0.to("cuda")
         eff_b0 = nn.DataParallel(eff_b0)
-        
+
     # create optimizer
     # optimizer_ft = RangerLars(eff_b0.parameters())
     optimizer_ft = optim.Adam(eff_b0.parameters(), weight_decay=1e-5)
 
     # create data loader
     data_loaders = create_dataloaders(
-        image_data, name_data, label_data, train_idx, valid_idx, 
+        image_data, name_data, label_data, train_idx, valid_idx,
         data_transforms, batch_size, num_workers, pin_memory
     )
-    
+
     # create lr scheduler
     # exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(
     #     optimizer_ft, factor=0.5, patience=5,
@@ -179,37 +202,23 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
 #     )
 #     # one_cycle_lr_scheduler = OneCycleLR(
 #     #     optimizer_ft, max_lr=0.01, steps_per_epoch=len(data_loaders["train"]), epochs=n_epoch
-#     # )   
-    
+#     # )
+
 #     scheduler_warmup = GradualWarmupScheduler(
 #         optimizer_ft, multiplier=1, total_epoch=10, after_scheduler=cos_lr_scheduler
 #     )
 
-    
+        
+    # Add W&B logging
+#     wandb.watch(eff_b0)
+
     callbacks = {}
 
     callbacks = train_model(
         eff_b0, optimizer_ft, data_loaders,
         mixed_precision, callbacks, mixup_alpha, num_epochs=n_epoch,
-        epoch_scheduler=None, save_dir=f"../model_weights/eff_0_with_mixup_cutmix_alpha_0.1/fold_{i}"
+        epoch_scheduler=None, save_dir=MODEL_DIR
     )
-
-# -
-
-configs = {
-    "model": "efficient 0",
-    "pretrain": pretrain,
-    "head_info": "1 fc",
-    "input_size": "224X224",
-    "optimizer": "adam",
-    "n_fold": n_splits,
-    "split_seed": random_seed,
-    "batch_size": batch_size,
-    "epoch": n_epoch,
-    "mixed_precision": mixed_precision,
-    "image_processing": "mixup, cutmix",
-    "cutmix/mixup alpha": 0.1,
-}
 
 # +
 save_root_dir = "../model_weights/eff_0_baseline"
