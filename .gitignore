@@ -4,3 +4,8 @@
 *.csv
 *.pickle
 *.pkl
+*checkpoint*
+*.json
+*.txt
+*.pyc
+.ipynb_checkpoints

@@ -16,14 +16,13 @@
 # %load_ext autoreload
 # %autoreload 2
 
-torchtools
-
 # +
 import csv
 import os
 
 import numpy as np
-import torch.optim as optima
+import torch.optim as optim
+
 from efficientnet_pytorch import EfficientNet
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
@@ -36,7 +35,7 @@ from hw_grapheme.data_pipeline import create_dataloaders, load_data
 from hw_grapheme.model import EfficientNet_grapheme, EfficientNet_0
 from hw_grapheme.loss_func import Loss_combine
 
-# from torchtools.optim import RangerLars, RAdam
+from torchtools.optim import RangerLars, RAdam
 # from one_cycle import OneCycleLR
 from torch.optim import Optimizer
 
@@ -57,8 +56,6 @@ def imshow(inp, title=None):
         plt.title(title)
     plt.pause(0.001)  # pause a bit so that plots are updated
 
-
-??load_data
 
 # +
 # load data 

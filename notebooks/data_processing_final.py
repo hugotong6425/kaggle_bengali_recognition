@@ -82,7 +82,7 @@ def proces_image(images):
 
 # +
 from pathlib import Path
-PROCESS_DATA = Path("../data/processed_data")
+PROCESS_DATA = Path("../data/processed_data/size_224")
 RAW_DATA = Path("../data")
 
 PROCESS_DATA.mkdir(exist_ok=True)
@@ -123,7 +123,9 @@ for i in range(4):
     print(psutil.virtual_memory()[4]/1024/1024/1024)
     
     with open(PROCESS_DATA/process_fn, "wb") as f:
-        pickle.dump(image, f)
+#         pickle.dump(image, f)
+        pickle.dump((image, image_name, label.values), f)
+
 # -
 
 # # Step by step
