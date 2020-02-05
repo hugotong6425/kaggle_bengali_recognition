@@ -71,7 +71,7 @@ def create_dataloaders(
         image_data[valid_idx], label_data[valid_idx], transforms=data_transforms["val"]
     )
     val_loader = DataLoader(
-        val_dataset, batch_size=batch_size,
+        val_dataset, batch_size=batch_size*2,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 
