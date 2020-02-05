@@ -9,3 +9,14 @@
 *.txt
 *.pyc
 .ipynb_checkpoints
+*.jsonl
+data
+*.png
+*.jpg
+*.gz
+*.h5
+*.yaml
+*.patch
+*.yml
+settings
+*.pth

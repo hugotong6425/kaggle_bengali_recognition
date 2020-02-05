@@ -4,3 +4,4 @@ matplotlib
 seaborn
 torch==1.1.0
 jupytext==1.3.3
+wandb
