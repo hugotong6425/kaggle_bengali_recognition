@@ -226,10 +226,11 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     )
 
 # +
-save_root_dir = "../model_weights/eff_0_baseline"
+save_root_dir = Path("../model_weights/eff_0_baseline")
+save_root_dir.mkdir(exist_ok=True)
 
 
-config_save_path = os.path.join(save_root_dir, "config.csv")
+config_save_path = save_root_dir/"config.csv"
 
 with open(config_save_path, "w") as f:
     for key in configs.keys():
