@@ -187,6 +187,8 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     else:
         eff_b0.to("cuda")
         eff_b0 = nn.DataParallel(eff_b0)
+        # Add W&B logging
+        wandb.watch(eff_b0, log='all')
 
     # create optimizer
     # optimizer_ft = RangerLars(eff_b0.parameters())
@@ -214,8 +216,7 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
 #     )
 
         
-    # Add W&B logging
-#     wandb.watch(eff_b0)
+
 
     callbacks = {}
 
