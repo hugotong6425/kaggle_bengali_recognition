@@ -56,6 +56,7 @@ def mixup(data, targets1, targets2, targets3, alpha):
     shuffled_targets3 = targets3[indices]
 
     lam = np.random.beta(alpha, alpha)
+    lam = max(lam, 1-lam) # Remove duplicate case
     data = data * lam + shuffled_data * (1 - lam)
     targets = [targets1, shuffled_targets1, targets2, shuffled_targets2, targets3, shuffled_targets3, lam]
 
