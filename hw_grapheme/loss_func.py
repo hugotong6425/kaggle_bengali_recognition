@@ -71,7 +71,7 @@ class CombineLabelSmoothingCrossEntropy(nn.Module):
 
         l1 = lin_comb(loss_root/c_root, nll_root, self.ε)
         l2 = lin_comb(loss_vowel/c_vowel, nll_vowel, self.ε)
-        l3 = lin_comb(loss_consonant/c_consonat, nll_consonant, self.ε)
+        l3 = lin_comb(loss_consonant/c_consonant, nll_consonant, self.ε)
         return combine_loss(l1, l2, l3)
 
 class Loss_combine(nn.Module):

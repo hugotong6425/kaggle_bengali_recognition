@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm_notebook
 
-from hw_grapheme.loss_func import Loss_combine, cutmix_criterion, mixup_criterion
+from hw_grapheme.loss_func import Loss_combine, cutmix_criterion, mixup_criterion, CombineLabelSmoothingCrossEntropy
 import wandb
 
 ##### for mix up training
@@ -142,6 +142,9 @@ def train_phrase(
             if np.random.rand() <= 1:
                 images, targets = mixup(images, root, vowel, consonant, mixup_alpha)
                 root_logit, vowel_logit, consonant_logit = model(images)
+                # criterion = CombineLabelSmoothingCrossEntropy()
+                # loss = criterion(root_logit, vowel_logit,
+                                #  consonant_logit, targets)
                 loss = mixup_criterion(root_logit, vowel_logit, consonant_logit, targets) 
             else:
                 images, targets = cutmix(images, root, vowel, consonant, mixup_alpha)
