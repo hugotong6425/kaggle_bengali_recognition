@@ -139,7 +139,7 @@ def train_phrase(
         # forward with all root vowel consonant outputs
         with torch.set_grad_enabled(True):
 
-            if np.random.rand() < 0.5:
+            if np.random.rand() <= 1:
                 images, targets = mixup(images, root, vowel, consonant, mixup_alpha)
                 root_logit, vowel_logit, consonant_logit = model(images)
                 loss = mixup_criterion(root_logit, vowel_logit, consonant_logit, targets) 
