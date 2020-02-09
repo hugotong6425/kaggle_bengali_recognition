@@ -10,7 +10,10 @@ from functools import partial
 def cutmix_criterion(preds1, preds2, preds3, targets):
     targets1, targets2, targets3, targets4, targets5, targets6, lam = targets[0], targets[1], targets[2], targets[3], targets[4], targets[5], targets[6]
     criterion = nn.CrossEntropyLoss(reduction='mean')
-    return lam * criterion(preds1, targets1) + (1 - lam) * criterion(preds1, targets2) + lam * criterion(preds2, targets3) + (1 - lam) * criterion(preds2, targets4) + lam * criterion(preds3, targets5) + (1 - lam) * criterion(preds3, targets6)
+    l1 = lam * criterion(preds1, targets1) + (1 - lam) * criterion(preds1, targets2)
+    l2 = lam * criterion(preds2, targets3) + (1 - lam) * criterion(preds2, targets4)
+    l3 =  lam * criterion(preds3, targets5) + (1 - lam) * criterion(preds3, targets6)
+    return combine_loss(l1, l2, l3)
 
 
 def mixup_criterion(preds1, preds2, preds3, targets):
