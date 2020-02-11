@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedKFold
 from tqdm import tqdm_notebook
 
-from hw_grapheme.loss_func import Loss_combine, cutmix_criterion, mixup_criterion
+from hw_grapheme.loss_func import Loss_combine, cutmix_criterion, mixup_criterion, CombineLabelSmoothingCrossEntropy
 import wandb
 
 ##### for mix up training
@@ -56,6 +56,7 @@ def mixup(data, targets1, targets2, targets3, alpha):
     shuffled_targets3 = targets3[indices]
 
     lam = np.random.beta(alpha, alpha)
+    lam = max(lam, 1-lam) # Remove duplicate case
     data = data * lam + shuffled_data * (1 - lam)
     targets = [targets1, shuffled_targets1, targets2, shuffled_targets2, targets3, shuffled_targets3, lam]
 
@@ -138,9 +139,12 @@ def train_phrase(
         # forward with all root vowel consonant outputs
         with torch.set_grad_enabled(True):
 
-            if np.random.rand() < 0.5:
+            if np.random.rand() <= 1:
                 images, targets = mixup(images, root, vowel, consonant, mixup_alpha)
                 root_logit, vowel_logit, consonant_logit = model(images)
+                # criterion = CombineLabelSmoothingCrossEntropy()
+                # loss = criterion(root_logit, vowel_logit,
+                                #  consonant_logit, targets)
                 loss = mixup_criterion(root_logit, vowel_logit, consonant_logit, targets) 
             else:
                 images, targets = cutmix(images, root, vowel, consonant, mixup_alpha)

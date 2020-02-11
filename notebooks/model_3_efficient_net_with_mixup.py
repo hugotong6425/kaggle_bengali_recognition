@@ -23,7 +23,7 @@ import os
 from pathlib import Path
 import numpy as np
 import torch.optim as optim
-from efficientnet_pytorch import EfficientNet
+# from efficientnet_pytorch import EfficientNet
 from torch import nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
@@ -32,7 +32,8 @@ from torch.optim import lr_scheduler
 from hw_grapheme.train_mixup import generate_stratified_k_fold_index, train_model
 from hw_grapheme.utils import load_model_weight
 from hw_grapheme.data_pipeline import create_dataloaders, load_data
-from hw_grapheme.model import EfficientNet_grapheme, EfficientNet_0
+# from hw_grapheme.model import EfficientNet_grapheme, EfficientNet_0
+from hw_grapheme.model import  EfficientNet_0
 from hw_grapheme.loss_func import Loss_combine
 
 # from torchtools.optim import RangerLars, RAdam
@@ -72,16 +73,16 @@ image_data, name_data, label_data = load_data(pickle_paths)
 image_data[-5][100:110, 100:110]
 
 configs = {
+    "name": 'mixup_only_alpha_0.4 + loss_weight_fix',
     "model": "efficient 0",
     "pretrain": False,
     "head_info": "1 fc",
     "input_size": "224X224",
     "optimizer": "adam",
-    "image_processing": "mixup, cutmix",
-    "cutmix/mixup alpha": 0.1,
-    'mixup_alpha' : 0.1,
-    'batch_size': 64,
-    'num_workers': 6,
+    "image_processing": "mixup_only",
+    'mixup_alpha' : 0.4,
+    'batch_size': 128,
+    'num_workers': 8,
     'pin_memory': True,
     'n_epoch': 120,
     'n_splits': 5,
@@ -104,7 +105,7 @@ train_idx_list, test_idx_list = generate_stratified_k_fold_index(
 
 # create loss function
 # criterion = nn.CrossEntropyLoss()
-criterion = Loss_combine()
+# criterion = Loss_combine()
 
 # for discriminative lr
 # my_list = ['module._fc.weight', 'module._fc.bias']
@@ -187,6 +188,8 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     else:
         eff_b0.to("cuda")
         eff_b0 = nn.DataParallel(eff_b0)
+        # Add W&B logging
+        wandb.watch(eff_b0, log='all')
 
     # create optimizer
     # optimizer_ft = RangerLars(eff_b0.parameters())
@@ -214,8 +217,7 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
 #     )
 
         
-    # Add W&B logging
-#     wandb.watch(eff_b0)
+
 
     callbacks = {}
 
@@ -252,7 +254,4 @@ with open(config_save_path, "w") as f:
 
 # imshow(out)
 # -
-
-
-
 
