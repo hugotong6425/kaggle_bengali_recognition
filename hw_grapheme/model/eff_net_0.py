@@ -1,5 +1,5 @@
 from efficientnet_pytorch import EfficientNet
-from efficientnet_pytorch.utils import MemoryEfficientSwish
+# from efficientnet_pytorch.utils import MemoryEfficientSwish
 from torch import nn
 
 
