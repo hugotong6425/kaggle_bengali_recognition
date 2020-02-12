@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 
 
-def load_data(pickle_paths):
+def load_data(pickle_paths, image_size=224):
     # load data from pickle
     image_data = []
     name_data = []
@@ -24,7 +24,7 @@ def load_data(pickle_paths):
 
     # print(image_data.shape, name_data.shape, label_data.shape)
 
-    image_data = image_data.reshape(image_data.shape[0]*image_data.shape[1], 224, 224)
+    image_data = image_data.reshape(image_data.shape[0]*image_data.shape[1], image_size, image_size)
     name_data = name_data.reshape(-1)
     label_data = label_data.reshape(label_data.shape[0]*label_data.shape[1], 3)
 
