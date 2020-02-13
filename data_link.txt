@@ -1,2 +1,0 @@
-5 folds of eff_0/eff_0_with_mixup_cutmix: 
-https://oworkspace-my.sharepoint.com/:u:/r/personal/tonghu_oocl_com/Documents/kaggle/bengali/model_weights.zip?csf=1&e=tfB0jE
