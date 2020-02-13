@@ -20,3 +20,4 @@ data
 *.yml
 settings
 *.pth
+*.ipynb
