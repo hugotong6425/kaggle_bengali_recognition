@@ -6,38 +6,6 @@ from torch import nn
 from functools import partial
 
 
-
-def cutmix_criterion(preds1, preds2, preds3, targets):
-    targets1, targets2, targets3, targets4, targets5, targets6, lam = targets[0], targets[1], targets[2], targets[3], targets[4], targets[5], targets[6]
-    criterion = nn.CrossEntropyLoss(reduction='mean')
-    l1 = lam * criterion(preds1, targets1) + (1 - lam) * criterion(preds1, targets2)
-    l2 = lam * criterion(preds2, targets3) + (1 - lam) * criterion(preds2, targets4)
-    l3 =  lam * criterion(preds3, targets5) + (1 - lam) * criterion(preds3, targets6)
-    return combine_loss(l1, l2, l3)
-
-
-def mixup_criterion(preds1, preds2, preds3, targets):
-    targets1, targets2, targets3, targets4, targets5, targets6, lam = targets[0], targets[1], targets[2], targets[3], targets[4], targets[5], targets[6]
-    criterion = nn.CrossEntropyLoss(reduction='mean')
-    l1 = lam * criterion(preds1, targets1) + (1 - lam) * \
-        criterion(preds1, targets2)
-    l2 = lam * criterion(preds2, targets3) + (1 - lam) * \
-        criterion(preds2, targets4)
-    l3 = lam * criterion(preds3, targets5) + (1 - lam) * \
-        criterion(preds3, targets6)
-
-    return combine_loss(l1, l2, l3)
-
-def lin_comb(a, b, t):
-    return t*a + (1-t) * b
-
-def reduce_loss(loss, reduction='mean'):
-    return loss.mean() if reduction == 'mean' else loss.sum() if reduction == 'sum' else loss
-
-def combine_loss(l1, l2, l3):
-    weights = [0.5, 0.25, 0.25]
-    return weights[0]*l1 + weights[1]*l2 + weights[2]*l3
-
 class CombineLabelSmoothingCrossEntropy(nn.Module):
     def __init__(self, ε: float = 0.1, reduction='mean'):
         super().__init__()
@@ -69,43 +37,61 @@ class CombineLabelSmoothingCrossEntropy(nn.Module):
         nll_consonant = F.nll_loss(
             log_preds_consonant, consonant_target, reduction=self.reduction)
 
-        l1 = lin_comb(loss_root/c_root, nll_root, self.ε)
-        l2 = lin_comb(loss_vowel/c_vowel, nll_vowel, self.ε)
-        l3 = lin_comb(loss_consonant/c_consonant, nll_consonant, self.ε)
+        l1 = lin_comb(loss_root / c_root, nll_root, self.ε)
+        l2 = lin_comb(loss_vowel / c_vowel, nll_vowel, self.ε)
+        l3 = lin_comb(loss_consonant / c_consonant, nll_consonant, self.ε)
         return combine_loss(l1, l2, l3)
 
-class Loss_combine(nn.Module):
-    def __init__(self):
+
+class Weighted_entropy(nn.Module):
+    def __init__(self, weights=[0.5, 0.25, 0.25]):
         super().__init__()
-        
+        self.weights = weights
+
     def forward(self, input, root_target, vowel_target, consonant_target, reduction='mean'):
         root_pred, vowel_pred, consonant_pred = input
         root_pred = root_pred.float()
         vowel_pred = vowel_pred.float()
         consonant_pred = consonant_pred.float()
-        
-#         print("In loss combine")
-        
-#         print("root_pred.shape", root_pred.shape)
-#         print("vowel_pred.shape", vowel_pred.shape)
-#         print("consonant_pred.shape", consonant_pred.shape)
-        
-#         print("root_target.shape", root_target.shape)
-#         print("vowel_target.shape", vowel_target.shape)
-#         print("consonant_target.shape", consonant_target.shape)
-        
-#         print("root_target.max", max(root_target))
-#         print("vowel_target.max", max(vowel_target))
-#         print("consonant_target.max", max(consonant_target))
-        
-#         print("root_target.min", min(root_target))
-#         print("vowel_target.min", min(vowel_target))
-#         print("consonant_target.min", min(consonant_target))
+
         l1 = F.cross_entropy(root_pred, root_target, reduction=reduction)
         l2 = F.cross_entropy(vowel_pred, vowel_target, reduction=reduction)
         l3 = F.cross_entropy(
-            consonant_pred, consonant_target, reduction=reduction)
-        return combine_loss(l1, l2, l3)
+            consonant_pred, consonant_target, reduction=reduction
+        )
+        return combine_loss(l1, l2, l3, self.weights)
+
+
+def cutmix_criterion(preds1, preds2, preds3, targets):
+    targets1, targets2, targets3, targets4, targets5, targets6, lam = targets[0], targets[1], targets[2], targets[3], targets[4], targets[5], targets[6]
+    criterion = nn.CrossEntropyLoss(reduction='mean')
+    l1 = lam * criterion(preds1, targets1) + (1 - lam) * criterion(preds1, targets2)
+    l2 = lam * criterion(preds2, targets3) + (1 - lam) * criterion(preds2, targets4)
+    l3 =  lam * criterion(preds3, targets5) + (1 - lam) * criterion(preds3, targets6)
+    return combine_loss(l1, l2, l3)
+
+
+def mixup_criterion(preds1, preds2, preds3, targets):
+    targets1, targets2, targets3, targets4, targets5, targets6, lam = targets[0], targets[1], targets[2], targets[3], targets[4], targets[5], targets[6]
+    criterion = nn.CrossEntropyLoss(reduction='mean')
+    l1 = lam * criterion(preds1, targets1) + (1 - lam) * \
+        criterion(preds1, targets2)
+    l2 = lam * criterion(preds2, targets3) + (1 - lam) * \
+        criterion(preds2, targets4)
+    l3 = lam * criterion(preds3, targets5) + (1 - lam) * \
+        criterion(preds3, targets6)
+
+    return combine_loss(l1, l2, l3)
+
+def lin_comb(a, b, t):
+    return t*a + (1-t) * b
+
+def reduce_loss(loss, reduction='mean'):
+    return loss.mean() if reduction == 'mean' else loss.sum() if reduction == 'sum' else loss
+
+def combine_loss(l1, l2, l3, weights=[0.5, 0.25, 0.25]):
+    return weights[0]*l1 + weights[1]*l2 + weights[2]*l3
+
 
 # class MixUpLoss(nn.Module):
 #     "Adapt the loss function `crit` to go with mixup."
@@ -129,10 +115,10 @@ class Loss_combine(nn.Module):
 #         if self.reduction == 'mean':    return d.mean()
 #         elif self.reduction == 'sum':   return d.sum()
 #         return d
-    
-    def get_old(self):
-        if hasattr(self, 'old_crit'):  return self.old_crit
-        elif hasattr(self, 'old_red'): 
-            setattr(self.crit, 'reduction', self.old_red)
-            return self.crit
+#
+#     def get_old(self):
+#         if hasattr(self, 'old_crit'):  return self.old_crit
+#         elif hasattr(self, 'old_red'):
+#             setattr(self.crit, 'reduction', self.old_red)
+#             return self.crit
 
