@@ -42,4 +42,3 @@ def stratified_split_kfold(image_data, label_data, n_splits, random_seed):
         test_idx_list.append(test_index)
 
     return train_idx_list, test_idx_list
-

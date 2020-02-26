@@ -7,7 +7,6 @@ from hw.grapheme.model_archs.head import Head_1fc
 
 
 class Selayer(nn.Module):
-
     def __init__(self, inplanes):
         super(Selayer, self).__init__()
         self.global_avgpool = nn.AdaptiveAvgPool2d(1)
@@ -37,8 +36,15 @@ class Bottleneck(nn.Module):
         self.conv1 = nn.Conv2d(inplanes, planes * 2, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes * 2)
 
-        self.conv2 = nn.Conv2d(planes * 2, planes * 2, kernel_size=3, stride=stride,
-                               padding=1, groups=cardinality, bias=False)
+        self.conv2 = nn.Conv2d(
+            planes * 2,
+            planes * 2,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            groups=cardinality,
+            bias=False,
+        )
         self.bn2 = nn.BatchNorm2d(planes * 2)
 
         self.conv3 = nn.Conv2d(planes * 2, planes * 4, kernel_size=1, bias=False)
@@ -76,14 +82,12 @@ class Bottleneck(nn.Module):
 
 
 class SeResNeXt(nn.Module):
-
     def __init__(self, block, layers, cardinality=32, num_classes=1000):
         super(SeResNeXt, self).__init__()
         self.cardinality = cardinality
         self.inplanes = 64
 
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3,
-                               bias=False)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -103,7 +107,7 @@ class SeResNeXt(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.weight.data.normal_(0, math.sqrt(2. / n))
+                m.weight.data.normal_(0, math.sqrt(2.0 / n))
                 if m.bias is not None:
                     m.bias.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
@@ -114,13 +118,20 @@ class SeResNeXt(nn.Module):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(
+                    self.inplanes,
+                    planes * block.expansion,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False,
+                ),
                 nn.BatchNorm2d(planes * block.expansion),
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, self.cardinality, stride, downsample))
+        layers.append(
+            block(self.inplanes, planes, self.cardinality, stride, downsample)
+        )
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
             layers.append(block(self.inplanes, planes, self.cardinality))
@@ -144,9 +155,9 @@ class SeResNeXt(nn.Module):
         logit_root = self.head_root(x)
         logit_vowel = self.head_vowel(x)
         logit_consonant = self.head_consonant(x)
-            
+
         return logit_root, logit_vowel, logit_consonant
-        
+
 
 def se_resnext50(**kwargs):
     """Constructs a SeResNeXt-50 model.
