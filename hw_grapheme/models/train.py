@@ -13,6 +13,9 @@ from hw_grapheme.train_utils.loss_func import (
     cutmix_criterion,
     mixup_criterion,
 )
+from hw_grapheme.callbacks.CallbackRecorder import CallbackRecorder
+from hw_grapheme.callbacks.ExportLogger import ExportLogger
+
 
 ##### for mix up training
 def rand_bbox(size, lam):
@@ -86,7 +89,6 @@ def train_phrase(
     model,
     optimizer,
     train_dataloader,
-    num_train,
     mixed_precision,
     train_loss_prob,
     head_loss_weight,
@@ -94,13 +96,8 @@ def train_phrase(
     batch_scheduler=None,
     wandb_log=True,
 ):
+    recorder = CallbackRecorder()
     model.train()  # Set model to training mode
-
-    # print("In train phrase")
-    running_loss = 0.0
-    root_corrects = 0
-    vowel_corrects = 0
-    consonant_corrects = 0
 
     # Iterate over data.
     for images, root, vowel, consonant in tqdm_notebook(train_dataloader):
@@ -157,39 +154,32 @@ def train_phrase(
 
         optimizer.step()
 
-        # statistics
-        running_loss += loss.item() * images.size(0)
-
-        _, preds_root = torch.max(root_logit, 1)
-        _, preds_vowel = torch.max(vowel_logit, 1)
-        _, preds_consonant = torch.max(consonant_logit, 1)
-
-        root_corrects += torch.sum(preds_root == root.data)
-        vowel_corrects += torch.sum(preds_vowel == vowel.data)
-        consonant_corrects += torch.sum(preds_consonant == consonant.data)
+        recorder.update(
+            loss,
+            root_logit,
+            vowel_logit,
+            consonant_logit,
+            root.data,
+            vowel.data,
+            consonant.data,
+        )
 
         if batch_scheduler:
             batch_scheduler.step()
 
-    train_loss = running_loss / float(num_train)
-
-    root_acc = root_corrects.double() / num_train
-    vowel_acc = vowel_corrects.double() / num_train
-    consonant_acc = consonant_corrects.double() / num_train
+    recorder.evaluate()
+    # root_true, root_predict = recorder.evaluate()
+    # return root_true, root_predict
 
     if wandb_log:
-        wandb.log(
-            {
-                "Training loss": train_loss,
-                "Training Root Accuracy": root_acc,
-                "Training Vowel Accuracy": vowel_acc,
-                "Training Consonant acc": consonant_acc,
-            }
-        )
-    return train_loss, root_acc, vowel_acc, consonant_acc
+        recorder.wandb_log(phrase="train")
+
+    return recorder
 
 
-def validate_phrase(model, valid_dataloader, num_val, wandb_log=True):
+def validate_phrase(model, valid_dataloader, wandb_log=True):
+    recorder = CallbackRecorder()
+
     # Each epoch has a training and validation phase
     model.eval()  # Set model to evaluate mode
 
@@ -218,33 +208,22 @@ def validate_phrase(model, valid_dataloader, num_val, wandb_log=True):
                 weights=[1 / 3, 1 / 3, 1 / 3],
             )
 
-        running_loss += loss.item() * images.size(0)
+        recorder.update(
+            loss,
+            root_logit,
+            vowel_logit,
+            consonant_logit,
+            root.data,
+            vowel.data,
+            consonant.data,
+        )
 
-        # statistics
-        _, preds_root = torch.max(root_logit, 1)
-        _, preds_vowel = torch.max(vowel_logit, 1)
-        _, preds_consonant = torch.max(consonant_logit, 1)
-
-        root_corrects += torch.sum(preds_root == root.data)
-        vowel_corrects += torch.sum(preds_vowel == vowel.data)
-        consonant_corrects += torch.sum(preds_consonant == consonant.data)
-
-    val_loss = running_loss / float(num_val)
-
-    root_acc = root_corrects.double() / num_val
-    vowel_acc = vowel_corrects.double() / num_val
-    consonant_acc = consonant_corrects.double() / num_val
+    recorder.evaluate()
 
     if wandb_log:
-        wandb.log(
-            {
-                "Validation loss": val_loss,
-                "Validation Root Accuracy": root_acc,
-                "Validation Vowel Accuracy": vowel_acc,
-                "Validation Consonant acc": consonant_acc,
-            }
-        )
-    return val_loss, root_acc, vowel_acc, consonant_acc
+        recorder.wandb_log(phrase="val")
+
+    return recorder
 
 
 def train_model(
@@ -252,7 +231,6 @@ def train_model(
     optimizer,
     dataloaders,
     mixed_precision,
-    callbacks,
     train_loss_prob,
     head_loss_weight,
     mixup_alpha=0.4,
@@ -264,36 +242,45 @@ def train_model(
 ):
     since = time.time()
 
-    callbacks["train_loss_list"] = []
-    callbacks["train_root_acc_list"] = []
-    callbacks["train_vowel_acc_list"] = []
-    callbacks["train_consonant_acc_list"] = []
-    callbacks["train_combined_acc_list"] = []
+    if wandb_log:
+        wandb.init(project="my-project")
 
-    callbacks["val_loss_list"] = []
-    callbacks["val_root_acc_list"] = []
-    callbacks["val_vowel_acc_list"] = []
-    callbacks["val_consonant_acc_list"] = []
-    callbacks["val_combined_acc_list"] = []
+    export_logger = ExportLogger(save_dir)
 
-    num_train = len(dataloaders["train"].dataset)
-    num_val = len(dataloaders["val"].dataset)
-
-    # high_acc_model_wts = copy.deepcopy(model.state_dict())
-    best_acc = 0.0
-
-    # low_loss_model_wts = copy.deepcopy(model.state_dict())
-    lowest_loss = 999
+    # need to co-change ExportLogger.update_from_callbackrecorder if want to
+    # change list_of_field
+    # prefer dont change
+    list_of_field = [
+        "train_loss",
+        "train_root_acc",
+        "train_vowel_acc",
+        "train_consonant_acc",
+        "train_combined_acc",
+        "train_root_recall",
+        "train_vowel_recall",
+        "train_consonant_recall",
+        "train_combined_recall",
+        "val_loss",
+        "val_root_acc",
+        "val_vowel_acc",
+        "val_consonant_acc",
+        "val_combined_acc",
+        "val_root_recall",
+        "val_vowel_recall",
+        "val_consonant_recall",
+        "val_combined_recall",
+    ]
+    export_logger.define_field_to_record(list_of_field)
 
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
 
-        train_loss, train_root_acc, train_vowel_acc, train_consonant_acc = train_phrase(
+        train_recorder = train_phrase(
+            # return train_phrase(
             model,
             optimizer,
             dataloaders["train"],
-            num_train,
             mixed_precision,
             train_loss_prob,
             head_loss_weight,
@@ -301,77 +288,21 @@ def train_model(
             batch_scheduler=batch_scheduler,
             wandb_log=wandb_log,
         )
+        print("Finish training")
+        train_recorder.print_statistics()
+        print()
 
-        combined_train_acc = (
-            train_root_acc * 0.5 + (train_vowel_acc + train_consonant_acc) * 0.25
-        )
-        print(
-            "Train Loss: {:.4f}, root_acc: {:.4f}, vowel_acc: {:.4f}, consonant_acc: {:.4f}, combined_acc: {:.4f}".format(
-                train_loss,
-                train_root_acc,
-                train_vowel_acc,
-                train_consonant_acc,
-                combined_train_acc,
-            )
-        )
+        valid_recorder = validate_phrase(model, dataloaders["val"], wandb_log=wandb_log)
+        print("Finish validating")
+        valid_recorder.print_statistics()
+        print()
 
-        val_loss, val_root_acc, val_vowel_acc, val_consonant_acc = validate_phrase(
-            model, dataloaders["val"], num_val, wandb_log=wandb_log
-        )
-        combined_val_acc = (
-            val_root_acc * 0.5 + (val_vowel_acc + val_consonant_acc) * 0.25
-        )
-        print(
-            "Val Loss: {:.4f}, root_acc: {:.4f}, vowel_acc: {:.4f}, consonant_acc: {:.4f}, combined_acc: {:.4f}".format(
-                val_loss,
-                val_root_acc,
-                val_vowel_acc,
-                val_consonant_acc,
-                combined_val_acc,
-            )
-        )
+        # record training statistics into ExportLogger
+        export_logger.update_from_callbackrecorder(train_recorder, valid_recorder)
 
-        if epoch_scheduler:
-            epoch_scheduler.step(val_loss)
-
-        # deep copy the model
-        if combined_val_acc > best_acc:
-            print(
-                f"In epoch {epoch}, highest val accuracy increases from {best_acc} to {combined_val_acc}."
-            )
-            best_acc = combined_val_acc
-            if save_dir:
-                torch.save(
-                    model.state_dict(), os.path.join(save_dir, "eff_0_high_acc.pth")
-                )
-
-        # deep copy the model
-        if val_loss < lowest_loss:
-            print(
-                f"In epoch {epoch}, lowest val loss decreases from {lowest_loss} to {val_loss}."
-            )
-            lowest_loss = val_loss
-            if save_dir:
-                torch.save(
-                    model.state_dict(), os.path.join(save_dir, "eff_0_low_loss.pth")
-                )
-
-        callbacks["train_loss_list"].append(train_loss)
-        callbacks["train_root_acc_list"].append(train_root_acc.item())
-        callbacks["train_vowel_acc_list"].append(train_vowel_acc.item())
-        callbacks["train_consonant_acc_list"].append(train_consonant_acc.item())
-        callbacks["train_combined_acc_list"].append(combined_train_acc.item())
-
-        callbacks["val_loss_list"].append(val_loss)
-        callbacks["val_root_acc_list"].append(val_root_acc.item())
-        callbacks["val_vowel_acc_list"].append(val_vowel_acc.item())
-        callbacks["val_consonant_acc_list"].append(val_consonant_acc.item())
-        callbacks["val_combined_acc_list"].append(combined_val_acc.item())
-
-        if save_dir:
-            pd.DataFrame(callbacks).to_csv(
-                os.path.join(save_dir, "callbacks.csv"), index=False
-            )
+        # check whether val_loss gets lower/val_combined_recall gets higher
+        # also save the model.pth is required
+        export_logger.export_models_and_csv(model, valid_recorder)
 
         print()
 
@@ -381,9 +312,9 @@ def train_model(
             time_elapsed // 60, time_elapsed % 60
         )
     )
-    print("Best Combnied Acc: {:4f}".format(best_acc))
+    # print("Best Combnied Acc: {:4f}".format(best_acc))
 
-    return callbacks
+    return export_logger.callbacks
 
     ## load best model weights
     # model.load_state_dict(best_model_wts)

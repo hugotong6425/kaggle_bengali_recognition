@@ -1,4 +1,5 @@
 import torch
+import wandb
 
 import numpy as np
 
@@ -65,10 +66,10 @@ class CallbackRecorder:
         root_acc = (self.root_corrects.double() / self.data_count).item()
         vowel_acc = (self.vowel_corrects.double() / self.data_count).item()
         consonant_acc = (self.consonant_corrects.double() / self.data_count).item()
-        #         print("root_acc: ", root_acc)
-        #         print("type(root_acc): ", type(root_acc))
-        #         print("vowel_acc: ", vowel_acc)
-        #         print("consonant_acc: ", consonant_acc)
+        # print("root_acc: ", root_acc)
+        # print("type(root_acc): ", type(root_acc))
+        # print("vowel_acc: ", vowel_acc)
+        # print("consonant_acc: ", consonant_acc)
 
         combined_acc = np.average(
             [root_acc, vowel_acc, consonant_acc], weights=[2, 1, 1]
@@ -111,6 +112,30 @@ class CallbackRecorder:
             consonant_recall,
             combined_recall,
         ]
+
+    def wandb_log(self, phrase):
+        """
+        phrase: ["train", "val"]
+        """
+
+        root_acc, vowel_acc, consonant_acc, combined_acc = self.accuracy_metrics
+        root_recall, vowel_recall, consonant_recall, combined_recall = (
+            self.recall_metrics
+        )
+
+        wandb.log(
+            {
+                f"{phrase} loss": self.loss,
+                f"{phrase} root acc": root_acc,
+                f"{phrase} vowel acc": vowel_acc,
+                f"{phrase} consonant acc": consonant_acc,
+                f"{phrase} combined acc": combined_acc,
+                f"{phrase} root recall": root_recall,
+                f"{phrase} vowel recall": vowel_recall,
+                f"{phrase} consonant recall": consonant_recall,
+                f"{phrase} combined recall": combined_recall,
+            }
+        )
 
     def get_loss(self):
         # all are float
