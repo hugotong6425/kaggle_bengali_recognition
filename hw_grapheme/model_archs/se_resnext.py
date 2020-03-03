@@ -3,7 +3,7 @@ import math
 
 from torch import nn
 
-from hw.grapheme.model_archs.head import Head_1fc
+from hw_grapheme.model_archs.head import Head_1fc
 
 
 class Selayer(nn.Module):
