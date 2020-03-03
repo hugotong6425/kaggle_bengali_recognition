@@ -64,18 +64,13 @@ def proces_image(images):
     images: (batch_size, 32332), np array
     
     """
-    image_max = images.max(axis=1).reshape(-1, 1).astype(np.uint8)
-    images = (255 - images)/image_max*255
-    images = images.reshape(-1, HEIGHT, WIDTH).astype(np.uint8)
-    
     processed_image_list = []
 
     for idx in tqdm(range(len(images))):
-        processed_image_list.append(crop_resize(images[idx]))
-
-    del image_max
-    del images
-    print(gc.collect())
+        img0 = 255 - images[idx].reshape(HEIGHT, WIDTH).astype(np.uint8)
+        #normalize each image by its max val
+        img = (img0*(255.0/img0.max())).astype(np.uint8)
+        processed_image_list.append(crop_resize(img))
     
     return np.array(processed_image_list)
 
@@ -85,8 +80,8 @@ from pathlib import Path
 PROCESS_DATA = Path("../data/processed_data/size_224")
 RAW_DATA = Path("../data")
 
-PROCESS_DATA.mkdir(exist_ok=True)
-RAW_DATA.mkdir(exist_ok=True)
+PROCESS_DATA.mkdir(exist_ok=True, parents=True)
+RAW_DATA.mkdir(exist_ok=True,parents=True)
 
 # +
 train_df = pd.read_csv("../data/train.csv")
