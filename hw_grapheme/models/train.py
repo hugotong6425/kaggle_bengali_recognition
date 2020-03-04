@@ -237,6 +237,7 @@ def train_model(
     mixup_alpha=0.4,
     num_epochs=25,
     epoch_scheduler=None,
+    error_plateau_scheduler=None,
     batch_scheduler=None,
     save_dir=None,
     wandb_log=False,
@@ -298,6 +299,11 @@ def train_model(
         valid_recorder.print_statistics()
         print()
 
+        # update lr scheduler
+        val_loss = valid_recorder.get_loss()
+        if error_plateau_scheduler:
+            error_plateau_scheduler.step(val_loss)
+        
         # record training statistics into ExportLogger
         export_logger.update_from_callbackrecorder(train_recorder, valid_recorder)
 
