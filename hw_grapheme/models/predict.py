@@ -8,9 +8,109 @@ import pandas as pd
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
-from hw_grapheme.utils import load_model_weight
+from hw_grapheme.io.load_model_weight import load_model_weight
+from hw_grapheme.io.load_data import load_processed_data
+from hw_grapheme.train_utils.train_test_split import stratified_split_kfold
+from torchvision import transforms
+from hw_grapheme.train_utils.create_dataloader import create_dataloaders_train
+import torch.nn.functional as F
+import sklearn
+from sklearn.metrics import classification_report, precision_recall_fscore_support
 
 
+def evaluate_macro_recall(
+    model, model_weight_path, pickle_paths, image_size, n_splits, random_seed, valid_fold, batch_size, num_workers, pin_memory
+):
+    def flatten(ls):
+        array = np.array(ls)
+        return np.hstack(array.tolist())
+
+    def show_most_wrong(df,n=10):
+        return df.sort_values('recall').head(10)
+
+    load_model_weight(model, model_weight_path)
+    
+    image_data, name_data, label_data = load_processed_data(pickle_paths, image_size=image_size)
+
+    train_idx_list, test_idx_list = stratified_split_kfold(
+        image_data, label_data, n_splits, random_seed
+    )
+
+    train_idx = train_idx_list[valid_fold]
+    valid_idx = test_idx_list[valid_fold]
+    
+    # create data_transforms
+    data_transforms = {
+        'train': transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Grayscale(num_output_channels=3),
+            transforms.ToTensor(),
+        ]),
+        'val': transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Grayscale(num_output_channels=3),
+            transforms.ToTensor(),
+        ]),
+    }
+
+    data_loaders = create_dataloaders_train(
+        image_data, name_data, label_data, train_idx, valid_idx, 
+        data_transforms, batch_size, num_workers, pin_memory
+    )
+    
+    ls = []
+    y1_ls = []
+    y2_ls = []
+    y3_ls = []
+    y1_pred_ls = []
+    y2_pred_ls = []
+    y3_pred_ls = []
+    
+    for i in tqdm(data_loaders['val']):
+        x,y1,y2,y3 = i 
+        with torch.no_grad():
+            y_pred = model(x.cuda())
+            y1_pred, y2_pred ,y3_pred = y_pred
+
+            y1_pred, y2_pred, y3_pred = map(lambda x:F.softmax(torch.tensor(x)).argmax(1), (y1_pred, y2_pred, y3_pred))
+            y1_pred = y1_pred.detach().cpu().numpy()
+            y2_pred = y2_pred.detach().cpu().numpy()
+            y3_pred = y3_pred.detach().cpu().numpy()
+            y1= y1.detach().cpu().numpy()
+            y2=y2.detach().cpu().numpy()
+            y3=y3.detach().cpu().numpy()
+
+            ls.append(y_pred)
+            y1_ls.append(y1)
+            y2_ls.append(y2)
+            y3_ls.append(y3)
+            y1_pred_ls.append(y1_pred)
+            y2_pred_ls.append(y2_pred)
+            y3_pred_ls.append(y3_pred)
+            
+    y1_ls = flatten(y1_ls)
+    y2_ls = flatten(y2_ls)
+    y3_ls = flatten(y3_ls)
+    y1_pred_ls = flatten(y1_pred_ls)
+    y2_pred_ls = flatten(y2_pred_ls)
+    y3_pred_ls = flatten(y3_pred_ls)
+    
+    y_trues , y_preds = [y1_ls, y2_ls, y3_ls], [y1_pred_ls, y2_pred_ls, y3_pred_ls]
+    
+    print("Macro recall of eroot, vowel, consonant: ")
+    for y_true, y_pred in zip(y_trues, y_preds):
+        print(sklearn.metrics.recall_score(y_true, y_pred, average='macro', zero_division='warn'))
+    
+    for y_true, y_pred in zip(y_trues, y_preds):
+        metrics = precision_recall_fscore_support(y_true, y_pred,average=None)
+        precision, recall, fscore, support = metrics
+        data = np.vstack([recall, support, precision, fscore]); data.shape    
+        metrics_summary_df = pd.DataFrame(data=data.T, columns=['recall', 'support','precision','fscore'])
+        metrics_summary_df = metrics_summary_df.sort_values('recall')
+        print(show_most_wrong(metrics_summary_df))
+        print("================= I am separation line ============")
+        
+        
 def softmax(array_2d):
     """
     array_2d (batch_size, dim)
