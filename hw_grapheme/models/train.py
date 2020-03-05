@@ -96,12 +96,13 @@ def train_phrase(
     mixup_alpha=0.4,
     batch_scheduler=None,
     wandb_log=True,
+    start_swa=False
 ):
     recorder = CallbackRecorder()
     model.train()  # Set model to training mode
 
     # Iterate over data.
-    for images, root, vowel, consonant in tqdm_notebook(train_dataloader):
+    for i, (images, root, vowel, consonant) in enumerate(tqdm_notebook(train_dataloader)):
         images = images.to("cuda")
         root = root.long().to("cuda")
         vowel = vowel.long().to("cuda")
@@ -154,6 +155,9 @@ def train_phrase(
             loss.backward()
 
         optimizer.step()
+        if start_swa and i % 5 == 0:
+            optimizer.update_swa()
+            print('updating weight')
 
         recorder.update(
             loss,
@@ -241,6 +245,7 @@ def train_model(
     batch_scheduler=None,
     save_dir=None,
     wandb_log=False,
+    swa=False,
 ):
     since = time.time()
 
@@ -277,6 +282,15 @@ def train_model(
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
+        
+        # SWA
+        
+        if swa:
+            if num_epochs - epoch < 20 : # Start averaging at last 20 ep
+                start_swa = True                
+            else:
+                start_swa = False
+        
 
         train_recorder = train_phrase(
             # return train_phrase(
@@ -289,7 +303,15 @@ def train_model(
             mixup_alpha=mixup_alpha,
             batch_scheduler=batch_scheduler,
             wandb_log=wandb_log,
+            start_swa=start_swa,
+          
         )
+        
+        if swa:
+            if epoch == (num_epochs -1): # Lastoptimizer. epi()sode, use swa
+                optimizer.swap_swa_sgd()
+                optimizer.bn_update(dataloaders['train'], model)
+                print('SWA Merge Models')
         print("Finish training")
         train_recorder.print_statistics()
         print()
