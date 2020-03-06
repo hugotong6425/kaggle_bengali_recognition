@@ -46,6 +46,7 @@ def cutmix(data, targets1, targets2, targets3, alpha):
     shuffled_targets3 = targets3[indices]
 
     lam = np.random.beta(alpha, alpha)
+    lam = max(lam, 1 - lam)  # Remove duplicate case
     bbx1, bby1, bbx2, bby2 = rand_bbox(data.size(), lam)
     data[:, :, bbx1:bbx2, bby1:bby2] = data[indices, :, bbx1:bbx2, bby1:bby2]
     # adjust lambda to exactly match pixel ratio
