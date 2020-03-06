@@ -262,9 +262,6 @@ def train_model(
     """
     since = time.time()
 
-    if wandb_log:
-        wandb.init(project="my-project")
-
     export_logger = ExportLogger(save_dir)
 
     # need to co-change ExportLogger.update_from_callbackrecorder if want to
