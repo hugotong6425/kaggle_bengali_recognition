@@ -158,10 +158,12 @@ def train_phrase(
         else:
             loss.backward()
 
+        # Step LR scheudler before loss
+        if batch_scheduler:
+            if start_swa:
+                batch_scheduler.step()
+
         optimizer.step()
-        if start_swa and i % 5 == 0:
-            optimizer.update_swa()
-            print('updating weight')
 
         recorder.update(
             loss,
@@ -173,8 +175,6 @@ def train_phrase(
             consonant.data,
         )
 
-        if batch_scheduler:
-            batch_scheduler.step()
 
     recorder.evaluate()
     # root_true, root_predict = recorder.evaluate()
@@ -294,15 +294,11 @@ def train_model(
         print("-" * 10)
         
         # SWA
-        
+        start_swa = False
         if swa:
-            if num_epochs - epoch < 20 : # Start averaging at last 20 ep
+            if num_epochs - epoch < 30 : # Start averaging at last 25% ep
                 start_swa = True                
-            else:
-                start_swa = False
-        else:
-            start_swa = False
-        
+                   
         train_recorder = train_phrase(
             model,
             optimizer,
@@ -315,14 +311,16 @@ def train_model(
             batch_scheduler=batch_scheduler,
             wandb_log=wandb_log,
             start_swa=start_swa,
-          
-        )
+                  )
         
-        if swa:
-            if epoch == (num_epochs -1): # Lastoptimizer. epi()sode, use swa
+        if start_swa:
+            print('CycleLR snapshot') # Update once per ep
+            optimizer.update_swa()
+            if epoch == (num_epochs -1): # Merge at end of last ep
                 optimizer.swap_swa_sgd()
-                optimizer.bn_update(dataloaders['train'], model)
+                optimizer.bn_update(dataloaders['train'], model) # Update batch stat
                 print('SWA Merge Models')
+
         print("Finish training")
         train_recorder.print_statistics()
         print()
