@@ -92,7 +92,8 @@ def train_phrase(
     train_dataloader,
     mixed_precision,
     train_loss_prob,
-    head_loss_weight,
+    head_weights,
+    class_weights,
     mixup_alpha=0.4,
     batch_scheduler=None,
     wandb_log=True,
@@ -124,7 +125,8 @@ def train_phrase(
                 vowel_logit,
                 consonant_logit,
                 targets,
-                weights=head_loss_weight,
+                class_weights,
+                head_weights=head_weights,
             )
         elif train_method == "cutmix":
             images, targets = cutmix(images, root, vowel, consonant, mixup_alpha)
@@ -134,7 +136,8 @@ def train_phrase(
                 vowel_logit,
                 consonant_logit,
                 targets,
-                weights=head_loss_weight,
+                class_weights,
+                head_weights=head_weights,
             )
         elif train_method == "cross_entropy":
             root_logit, vowel_logit, consonant_logit = model(images)
@@ -144,7 +147,8 @@ def train_phrase(
                 vowel_logit,
                 consonant_logit,
                 targets,
-                weights=head_loss_weight,
+                class_weights,
+                head_weights=head_weights,
             )
 
         # backward + optimize
@@ -210,7 +214,8 @@ def validate_phrase(model, valid_dataloader, wandb_log=True):
                 vowel_logit,
                 consonant_logit,
                 targets,
-                weights=[1 / 3, 1 / 3, 1 / 3],
+                class_weights=None,
+                head_weights=[1 / 3, 1 / 3, 1 / 3],
             )
 
         recorder.update(
@@ -237,7 +242,8 @@ def train_model(
     dataloaders,
     mixed_precision,
     train_loss_prob,
-    head_loss_weight,
+    class_weights=None,
+    head_weights=[0.5, 0.25, 0.25],
     mixup_alpha=0.4,
     num_epochs=25,
     epoch_scheduler=None,
@@ -247,6 +253,13 @@ def train_model(
     wandb_log=False,
     swa=False,
 ):
+    """
+    class_weight is a list of 3 tensors, or None
+    if not None:
+        class_weight[0], len 168, weight of root
+        class_weight[1], len 11, weight of vowel
+        class_weight[2], len 7, weight of consonant
+    """
     since = time.time()
 
     if wandb_log:
@@ -290,16 +303,17 @@ def train_model(
                 start_swa = True                
             else:
                 start_swa = False
+        else:
+            start_swa = False
         
-
         train_recorder = train_phrase(
-            # return train_phrase(
             model,
             optimizer,
             dataloaders["train"],
             mixed_precision,
             train_loss_prob,
-            head_loss_weight,
+            head_weights,
+            class_weights,
             mixup_alpha=mixup_alpha,
             batch_scheduler=batch_scheduler,
             wandb_log=wandb_log,
