@@ -29,7 +29,7 @@ epoch_scheduler_func: None
 epoch_scheduler_func_para: {}
 data_transforms: 
   rotate: 10
-  scale: (1.0, 1.1)
+  scale: [1.0, 1.1]
   p_affine: 0.75
 
 # Base Config
