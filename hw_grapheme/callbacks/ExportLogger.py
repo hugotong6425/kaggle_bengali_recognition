@@ -5,11 +5,9 @@ import pandas as pd
 
 
 class ExportLogger:
-    """ Export csv and model.pth
+    """ Export csv and model.pth"""
 
-    """
-
-    def __init__(self, save_dir):
+    def __init__(self, save_dir, since):
         """
         if save_dir is None, then don't save model.pth
         """
@@ -17,6 +15,9 @@ class ExportLogger:
         self.lowest_loss = 999
         self.save_dir = save_dir
         self.save_dir = Path(self.save_dir)
+        self.save_dir.mkdir(parents=True, exist_ok=True)
+        since = since.strftime("%Y%m%d-%H%M%S")
+        self.model_save_dir = self.save_dir/since
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
     def define_field_to_record(self, list_of_field):
@@ -124,7 +125,7 @@ class ExportLogger:
             if self.save_dir:
                 torch.save(
                     model.state_dict(),
-                    os.path.join(self.save_dir, "low_loss_model.pth"),
+                    os.path.join(self.model_save_dir, "low_loss_model.pth"),
                 )
 
         # export model with highest val recall
@@ -136,11 +137,11 @@ class ExportLogger:
             if self.save_dir:
                 torch.save(
                     model.state_dict(),
-                    os.path.join(self.save_dir, "high_recall_model.pth"),
+                    os.path.join(self.model_save_dir, "high_recall_model.pth"),
                 )
 
         # export csv
-        if self.save_dir:
+        if self.model_save_dir:
             pd.DataFrame(self.callbacks).to_csv(
                 os.path.join(self.save_dir, "callbacks.csv"), index=False
             )
