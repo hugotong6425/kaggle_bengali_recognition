@@ -1,6 +1,6 @@
 import torch
 import os
-
+from pathlib import Path
 import pandas as pd
 
 
@@ -16,6 +16,8 @@ class ExportLogger:
         self.highest_recall = 0.0
         self.lowest_loss = 999
         self.save_dir = save_dir
+        self.save_dir = Path(self.save_dir)
+        self.save_dir.mkdir(parents=True, exist_ok=True)
 
     def define_field_to_record(self, list_of_field):
         """ e.g. list_of_field = ["train_loss", "combined_recall"]
