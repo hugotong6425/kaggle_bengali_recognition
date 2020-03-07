@@ -8,6 +8,7 @@ from pathlib import Path
 
 import torch
 import torch.optim as optim
+import torch.nn.functional as F
 from torch import nn
 from torchvision import transforms
 import torchcontrib
@@ -21,6 +22,7 @@ from hw_grapheme.models.train import train_model
 from hw_grapheme.train_utils.create_dataloader import create_dataloaders_train
 from hw_grapheme.train_utils.train_test_split import stratified_split_kfold
 from omegaconf import DictConfig
+from tqdm.notebook import tqdm
 
 # # Init
 
@@ -97,7 +99,7 @@ data_transforms = {
     'train': transforms.Compose([
         transforms.ToPILImage(),
         transforms.RandomApply(
-            [transforms.RandomAffine(degrees=rotate, scale=scale)],
+            [transforms.RandomAffine(degrees=rotate, scale=tuple(scale))],
             p=p_affine,
         ),
         transforms.Grayscale(num_output_channels=3),
@@ -235,5 +237,106 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     }
 
     callbacks = train_model(**train_input_args)
+
+# # Analysis
+
+# +
+for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
+    data_loaders = create_dataloaders_train(
+    image_data, name_data, label_data, train_idx, valid_idx, 
+    data_transforms, batch_size, num_workers, pin_memory)
+    
+ls = []
+y1_ls = []
+y2_ls = []
+y3_ls = []
+y1_pred_ls = []
+y2_pred_ls = []
+y3_pred_ls = []
+
+# -
+
+for i in tqdm(data_loaders['val']):
+    x,y1,y2,y3 = i 
+    with torch.no_grad():
+        y_pred = model(x.cuda())
+        y1_pred, y2_pred ,y3_pred = y_pred
+#         import pdb
+#         pdb.set_trace()
+        y1_pred, y2_pred, y3_pred = map(lambda x:F.softmax(torch.tensor(x)).argmax(1), (y1_pred, y2_pred, y3_pred))
+        y1_pred = y1_pred.detach().cpu().numpy()
+        y2_pred = y2_pred.detach().cpu().numpy()
+        y3_pred = y3_pred.detach().cpu().numpy()
+        y1= y1.detach().cpu().numpy()
+        y2=y2.detach().cpu().numpy()
+        y3=y3.detach().cpu().numpy()
+        
+        ls.append(y_pred)
+        y1_ls.append(y1)
+        y2_ls.append(y2)
+        y3_ls.append(y3)
+        y1_pred_ls.append(y1_pred)
+        y2_pred_ls.append(y2_pred)
+        y3_pred_ls.append(y3_pred)
+
+# +
+import numpy as np
+import sklearn
+from sklearn.metrics import classification_report, precision_recall_fscore_support, confusion_matrix
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+def flatten(ls):
+    array = np.array(ls)
+    return np.hstack(array.tolist())
+
+def show_most_wrong(df,n=10):
+    return df.sort_values('recall').head(10)
+
+def show_confusion_matrix(y_true, y_pred):
+    confusion_mat = confusion_matrix(y_true, y_pred)
+    sns.heatmap(confusion_mat)
+
+
+
+# -
+
+y1_ls = flatten(y1_ls)
+y2_ls = flatten(y2_ls)
+y3_ls = flatten(y3_ls)
+y1_pred_ls = flatten(y1_pred_ls)
+y2_pred_ls = flatten(y2_pred_ls)
+y3_pred_ls = flatten(y3_pred_ls)
+
+y_trues , y_preds = [y1_ls, y2_ls, y3_ls], [y1_pred_ls, y2_pred_ls, y3_pred_ls]
+
+for y_true, y_pred in zip(y_trues, y_preds):
+    print(sklearn.metrics.recall_score(y_true, y_pred, average='macro', zero_division='warn'))
+    
+
+for y_true, y_pred in zip(y_trues, y_preds):
+    show_confusion_matrix(y_true, y_pred)   
+    plt.show()
+
+
+
+for y_true, y_pred in zip(y_trues, y_preds):
+    metrics = precision_recall_fscore_support(y_true, y_pred,average=None)
+    precision, recall, fscore, support = metrics
+    data = np.vstack([recall, support, precision, fscore]); data.shape    
+    metrics_summary_df = pd.DataFrame(data=data.T, columns=['recall', 'support','precision','fscore'])
+    metrics_summary_df = metrics_summary_df.sort_values('recall')
+    print(show_most_wrong(metrics_summary_df))
+    print("================= I am separation line ============")
+
+for y_true, y_pred in zip(y_trues, y_preds):
+    metrics = precision_recall_fscore_support(y_true, y_pred,average=None)
+    precision, recall, fscore, support = metrics
+    data = np.vstack([recall, support, precision, fscore]); data.shape    
+    metrics_summary_df = pd.DataFrame(data=data.T, columns=['recall', 'support','precision','fscore'])
+    metrics_summary_df = metrics_summary_df.sort_values('recall')
+    print(show_most_wrong(metrics_summary_df))
+    print("================= I am separation line ============")
 
 
