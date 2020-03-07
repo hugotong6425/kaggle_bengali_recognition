@@ -263,7 +263,7 @@ def train_model(
     """
     since = time.time()
 
-    export_logger = ExportLogger(save_dir)
+    export_logger = ExportLogger(save_dir, since)
 
     # need to co-change ExportLogger.update_from_callbackrecorder if want to
     # change list_of_field

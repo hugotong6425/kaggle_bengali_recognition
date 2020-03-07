@@ -1,0 +1,3 @@
+mix_precision: False
+batch_size: 256
+gpu_device: '1080ti'

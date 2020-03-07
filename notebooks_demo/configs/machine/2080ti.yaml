@@ -1,0 +1,3 @@
+mix_precision: True
+batch_size: 512
+gpu_device: '2080ti'

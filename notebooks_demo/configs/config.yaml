@@ -1,0 +1,35 @@
+defaults:
+  - machine: 2080ti
+
+# Directory Config
+DATA_PATH: D:\kaggle\kaggle_bengali_recognition\data\processed\size_128
+save_dir: D:\kaggle\kaggle_bengali_recognition\models\baseline-1080ti
+
+# Base Config
+random_seed: 2020
+num_workers: 6
+pin_memory: True
+n_splits: 5
+n_epoch: 120
+wandb_log: True
+exp_name: base
+
+# Custom config
+swa: False
+
+is_weighted_class_loss: True
+# prob. of using ["mixup", "cutmix", "cross_entropy"] loss
+mixup_alpha: 0.4
+train_loss_prob: [0, 0, 1.0]
+# # weighting of [root, vowel, consonant]
+head_weights: [0.5, 0.25, 0.25]
+
+optimizer: optim.Adam
+optimizer_parameter: {}
+model_arch: se_resnext50
+model_parameter: {}
+error_plateau_scheduler_func: None
+error_plateau_scheduler_func_para: {}
+epoch_scheduler_func: None
+epoch_scheduler_func_para: {}
+
