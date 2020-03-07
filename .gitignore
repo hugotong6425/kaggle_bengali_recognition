@@ -15,9 +15,11 @@ data
 *.jpg
 *.gz
 *.h5
-*.yaml
 *.patch
 *.yml
 settings
 *.pth
 *.ipynb
+*.log
+wandb/
+outputs/
