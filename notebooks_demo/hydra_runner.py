@@ -96,8 +96,8 @@ p_affine = cfg.data_transforms.p_affine
 data_transforms = {
     'train': transforms.Compose([
         transforms.ToPILImage(),
-        transforms.RandomApply([
-            transforms.RandomAffine(degrees=rotate, scale=scale),
+        transforms.RandomApply(
+            [transforms.RandomAffine(degrees=rotate, scale=scale)],
             p=p_affine,
         ),
         transforms.Grayscale(num_output_channels=3),
