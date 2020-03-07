@@ -221,7 +221,6 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     # Training
     train_input_args = {
         "model": model,
-        "head": head,
         "optimizer": optimizer_ft,
         "dataloaders": data_loaders,
         "mixed_precision": mixed_precision,
