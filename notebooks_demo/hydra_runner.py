@@ -97,7 +97,7 @@ data_transforms = {
     'train': transforms.Compose([
         transforms.ToPILImage(),
         transforms.RandomApply([
-            transforms.RandomAffine(degrees=rotate, scale=scale),
+            transforms.RandomAffine(degrees=rotate, scale=tuple(scale))],
             p=p_affine,
         ),
         transforms.Grayscale(num_output_channels=3),
@@ -235,3 +235,5 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     }
 
     callbacks = train_model(**train_input_args)
+
+
