@@ -6,7 +6,7 @@ import wandb
 import numpy as np
 import pandas as pd
 
-from apex import amp
+
 from tqdm import tqdm_notebook
 
 from hw_grapheme.callbacks.CallbackRecorder import CallbackRecorder
@@ -261,9 +261,11 @@ def train_model(
         class_weight[1], len 11, weight of vowel
         class_weight[2], len 7, weight of consonant
     """
+    if mixed_precision:
+        from apex import amp
     since = time.time()
 
-    export_logger = ExportLogger(save_dir, since)
+    export_logger = ExportLogger(save_dir)
 
     # need to co-change ExportLogger.update_from_callbackrecorder if want to
     # change list_of_field

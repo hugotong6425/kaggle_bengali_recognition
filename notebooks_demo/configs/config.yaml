@@ -5,19 +5,14 @@ defaults:
 DATA_PATH: D:\kaggle\kaggle_bengali_recognition\data\processed\size_128
 save_dir: D:\kaggle\kaggle_bengali_recognition\models\baseline-1080ti
 
-# Base Config
-random_seed: 2020
-num_workers: 6
-pin_memory: True
-n_splits: 5
-n_epoch: 120
 wandb_log: True
 exp_name: base
+project: my-project
 
 # Custom config
 swa: False
-
 is_weighted_class_loss: True
+
 # prob. of using ["mixup", "cutmix", "cross_entropy"] loss
 mixup_alpha: 0.4
 train_loss_prob: [0, 0, 1.0]
@@ -33,3 +28,10 @@ error_plateau_scheduler_func_para: {}
 epoch_scheduler_func: None
 epoch_scheduler_func_para: {}
 
+
+# Base Config
+random_seed: 2020
+num_workers: 6
+pin_memory: True
+n_splits: 5
+n_epoch: 120

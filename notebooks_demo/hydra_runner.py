@@ -189,7 +189,7 @@ def experiment_runner(cfg: DictConfig) -> None:
         else:
             full_save_dir = None
 
-        wandb.init(name=cfg.exp_name, project='regression',config=cfg)
+        wandb.init(name=cfg.exp_name, project=cfg.project,config=cfg)
         # Training
         train_input_args = {
             "model": model,

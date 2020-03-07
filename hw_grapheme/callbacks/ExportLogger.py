@@ -2,12 +2,12 @@ import torch
 import os
 from pathlib import Path
 import pandas as pd
-
+import time
 
 class ExportLogger:
     """ Export csv and model.pth"""
 
-    def __init__(self, save_dir, since):
+    def __init__(self, save_dir):
         """
         if save_dir is None, then don't save model.pth
         """
@@ -16,8 +16,9 @@ class ExportLogger:
         self.save_dir = save_dir
         self.save_dir = Path(self.save_dir)
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        since = since.strftime("%Y%m%d-%H%M%S")
-        self.model_save_dir = self.save_dir/since
+        now = time.time.now()
+        now = now.strftime("%Y%m%d-%H%M%S")
+        self.model_save_dir = self.save_dir/now
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
     def define_field_to_record(self, list_of_field):
