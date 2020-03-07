@@ -27,7 +27,10 @@ error_plateau_scheduler_func: None
 error_plateau_scheduler_func_para: {}
 epoch_scheduler_func: None
 epoch_scheduler_func_para: {}
-
+data_transforms: 
+  rotate: 10
+  scale: (1.0, 1.1)
+  p_affine: 0.75
 
 # Base Config
 random_seed: 2020

@@ -57,24 +57,6 @@ def experiment_runner(cfg: DictConfig) -> None:
         image_data, label_data, n_splits, random_seed
     )
 
-    # create data_transforms
-    data_transforms = {
-        'train': transforms.Compose([
-            transforms.ToPILImage(),
-            # transforms.RandomAffine(degrees=10, scale=(1.0, 1.15)),
-            transforms.Grayscale(num_output_channels=3),
-            transforms.ToTensor(),
-            # transforms.Normalize([0.0692], [0.2051]),
-            # transforms.ToPILImage(),
-        ]),
-        'val': transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Grayscale(num_output_channels=3),
-            transforms.ToTensor(),
-            # transforms.Normalize([0.0692], [0.2051])
-        ]),
-    }
-
     # +
     # default training setting
     num_workers = cfg.num_workers
@@ -89,6 +71,29 @@ def experiment_runner(cfg: DictConfig) -> None:
     model_arch = eval(cfg.model_arch)
     model_parameter = cfg.model_parameter
     # model_parameter = eval(cfg.model_parameter)
+
+    # import image transforms config
+    rotate = cfg.data_transforms.rotate
+    scale = cfg.data_transforms.rotate
+    p_affine = cfg.data_transforms.p_affine
+    data_transforms = {
+        'train': transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.RandomApply(
+                transforms.RandomAffine(degrees=rotate, scale=scale),
+                p=p_affine,
+            ),
+            transforms.Grayscale(num_output_channels=3),
+            transforms.ToTensor(),
+            # transforms.Normalize([0.0692], [0.2051]),
+        ]),
+        'val': transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Grayscale(num_output_channels=3),
+            transforms.ToTensor(),
+            # transforms.Normalize([0.0692], [0.2051])
+        ]),
+    }
 
     swa = cfg.swa
 
