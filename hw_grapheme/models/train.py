@@ -95,9 +95,10 @@ def train_phrase(
     train_loss_prob,
     head_weights,
     class_weights,
-    mixup_alpha=0.4,
+    ohem_rate,
+    mixup_alpha,
     batch_scheduler=None,
-    wandb_log=True,
+    wandb_log=False,
     start_swa=False
 ):
     recorder = CallbackRecorder()
@@ -115,7 +116,7 @@ def train_phrase(
 
         # forward with all root vowel consonant outputs
         # with torch.set_grad_enabled(True):
-        train_method_choice_list = ["mixup", "cutmix", "cross_entropy"]
+        train_method_choice_list = ["mixup", "cutmix", "cross_entropy", "ohem"]
         train_method = np.random.choice(train_method_choice_list, 1, p=train_loss_prob)
 
         if train_method == "mixup":
@@ -149,6 +150,17 @@ def train_phrase(
                 consonant_logit,
                 targets,
                 class_weights,
+                head_weights=head_weights,
+            )
+        elif train_method == "ohem":
+            root_logit, vowel_logit, consonant_logit = model(images)
+            targets = (root, vowel, consonant)
+            loss = ohem_criterion(
+                root_logit,
+                vowel_logit,
+                consonant_logit,
+                targets,
+                ohem_rate,
                 head_weights=head_weights,
             )
 

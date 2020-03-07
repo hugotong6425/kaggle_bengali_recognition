@@ -42,6 +42,30 @@ class CombineLabelSmoothingCrossEntropy(nn.Module):
         return combine_loss(l1, l2, l3)
 
 
+def ohem_loss(cls_pred, cls_target, ohem_rate):
+
+    batch_size = cls_pred.size(0) 
+    ohem_cls_loss = F.cross_entropy(cls_pred, cls_target, reduction='none', ignore_index=-1)
+
+    sorted_ohem_loss, idx = torch.sort(ohem_cls_loss, descending=True)
+    keep_num = min(sorted_ohem_loss.size()[0], int(batch_size*ohem_rate) )
+    if keep_num < sorted_ohem_loss.size()[0]:
+        keep_idx_cuda = idx[:keep_num]
+        ohem_cls_loss = ohem_cls_loss[keep_idx_cuda]
+    cls_loss = ohem_cls_loss.sum() / keep_num
+    return cls_loss
+
+
+def ohem_criterion(preds1, preds2, preds3, targets, ohem_rate, head_weights=[0.5, 0.25, 0.25]):
+    targets1, targets2, targets3 = targets[0], targets[1], targets[2]
+
+    l1 = ohem_loss(preds1, targets1, ohem_rate)
+    l2 = ohem_loss(preds2, targets2, ohem_rate)
+    l3 = ohem_loss(preds3, targets3, ohem_rate)
+
+    return combine_loss(l1, l2, l3, head_weights)
+
+
 def cross_entropy_criterion(
     preds1, preds2, preds3, targets, class_weights, head_weights=[0.5, 0.25, 0.25]
 ):

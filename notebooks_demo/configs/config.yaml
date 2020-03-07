@@ -13,9 +13,10 @@ project: my-project
 swa: False
 is_weighted_class_loss: True
 
-# prob. of using ["mixup", "cutmix", "cross_entropy"] loss
-mixup_alpha: 0.4
-train_loss_prob: [0, 0, 1.0]
+# prob. of using ["mixup", "cutmix", "cross_entropy", "ohem"] loss
+train_loss_prob: [0.0, 0.0, 1.0, 0.0]
+mixup_alpha: 0.4  # for mixup/cutmix only
+ohem_rate: 0.7  # for ohem only
 # # weighting of [root, vowel, consonant]
 head_weights: [0.5, 0.25, 0.25]
 
