@@ -17,6 +17,7 @@ from hydra.experimental import compose, initialize
 
 from hw_grapheme.io.load_data import load_processed_data
 from hw_grapheme.model_archs.se_resnext import se_resnext50
+from hw_grapheme.model_archs.head import Head_1fc, Head_3fc
 from hw_grapheme.models.train import train_model
 from hw_grapheme.train_utils.create_dataloader import create_dataloaders_train
 from hw_grapheme.train_utils.train_test_split import stratified_split_kfold
@@ -86,6 +87,7 @@ mixed_precision = cfg.mix_precision
 
 model_arch = eval(cfg.model_arch)
 model_parameter = cfg.model_parameter
+model_parameter["head"] = eval(cfg.head)
 # model_parameter = eval(cfg.model_parameter)
 # -
 
@@ -219,6 +221,7 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     # Training
     train_input_args = {
         "model": model,
+        "head": head,
         "optimizer": optimizer_ft,
         "dataloaders": data_loaders,
         "mixed_precision": mixed_precision,

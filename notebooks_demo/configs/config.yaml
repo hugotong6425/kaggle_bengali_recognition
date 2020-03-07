@@ -19,6 +19,7 @@ train_loss_prob: [0, 0, 1.0]
 # # weighting of [root, vowel, consonant]
 head_weights: [0.5, 0.25, 0.25]
 
+head: Head_1fc
 optimizer: optim.Adam
 optimizer_parameter: {}
 model_arch: se_resnext50
