@@ -61,7 +61,6 @@ def create_dataloaders_train(
     transforms=data_transforms["val"],
     )
 
-    no_aug_dataset = train_dataset.copy()
     no_aug_loader = DataLoader(
     no_aug_dataset,
     batch_size=batch_size * 2,
