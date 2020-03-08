@@ -45,8 +45,8 @@ def cutmix(data, targets1, targets2, targets3, alpha):
     shuffled_targets2 = targets2[indices]
     shuffled_targets3 = targets3[indices]
 
-    lam = np.random.beta(alpha, alpha)
-    lam = max(lam, 1 - lam)  # Remove duplicate case
+    lam = np.random.beta(alpha, alpha, size=indices.shape)
+    lam = np.vstack([lam, 1-lam]).max(axis=0) # Remove duplicate case
     bbx1, bby1, bbx2, bby2 = rand_bbox(data.size(), lam)
     data[:, :, bbx1:bbx2, bby1:bby2] = data[indices, :, bbx1:bbx2, bby1:bby2]
     # adjust lambda to exactly match pixel ratio
@@ -71,8 +71,9 @@ def mixup(data, targets1, targets2, targets3, alpha):
     shuffled_targets2 = targets2[indices]
     shuffled_targets3 = targets3[indices]
 
-    lam = np.random.beta(alpha, alpha)
-    lam = max(lam, 1 - lam)  # Remove duplicate case
+    lam = np.random.beta(alpha, alpha, size=indices.shape)
+    lam = np.vstack([lam, 1-lam]).max(axis=0) # Remove duplicate case
+    # lam = max(lam, 1 - lam)  # Remove duplicate case
     data = data * lam + shuffled_data * (1 - lam)
     targets = [
         targets1,
