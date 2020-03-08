@@ -198,7 +198,7 @@ def train_phrase(
     return recorder
 
 
-def validate_phrase(model, valid_dataloader, wandb_log=True):
+def validate_phrase(model, valid_dataloader, wandb_log=True, phrase='val'):
     recorder = CallbackRecorder()
 
     # Each epoch has a training and validation phase
@@ -243,7 +243,7 @@ def validate_phrase(model, valid_dataloader, wandb_log=True):
     recorder.evaluate()
 
     if wandb_log:
-        recorder.wandb_log(phrase="val")
+        recorder.wandb_log(phrase=phrase)
 
     return recorder
 
@@ -355,7 +355,7 @@ def train_model(
         valid_recorder.print_statistics()
         print()
 
-        no_aug_recorder = validate_phrase(model, dataloaders["no_aug"], wandb_log=wandb_log)
+        no_aug_recorder = validate_phrase(model, dataloaders["no_aug"], wandb_log=wandb_log, phrase='no aug')
         print("Finish no aug validation")
         no_aug_recorder.print_statistics()
         print()
