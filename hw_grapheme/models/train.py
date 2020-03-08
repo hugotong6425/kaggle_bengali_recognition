@@ -345,7 +345,7 @@ def train_model(
         valid_recorder.print_statistics()
         print()
 
-        no_aug_recorder = validate_phrase(model, dataloaders["train"], wandb_log=wandb_log)
+        no_aug_recorder = validate_phrase(model, dataloaders["no_aug"], wandb_log=wandb_log)
         print("Finish no aug validation")
         valid_recorder.print_statistics()
         print()
