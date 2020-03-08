@@ -249,6 +249,7 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     data_loaders = create_dataloaders_train(
     image_data, name_data, label_data, train_idx, valid_idx, 
     data_transforms, batch_size, num_workers, pin_memory)
+    break
     
 ls = []
 y1_ls = []
@@ -340,3 +341,5 @@ for y_true, y_pred in zip(y_trues, y_preds):
     metrics_summary_df = metrics_summary_df.sort_values('recall')
     print(show_most_wrong(metrics_summary_df))
     print("================= I am separation line ============")
+
+
