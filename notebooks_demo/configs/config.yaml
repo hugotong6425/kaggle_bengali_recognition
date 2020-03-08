@@ -32,6 +32,7 @@ data_transforms:
   rotate: 10
   scale: [1.0, 1.1]
   p_affine: 0.75
+  shear: 0
 
 # Base Config
 random_seed: 2020

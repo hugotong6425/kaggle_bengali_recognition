@@ -37,7 +37,9 @@ EXP_NAME = "regression"
 MACHINE = "1080ti"
 IS_WEIGHT_CLASS = False
 
-overrides = [f"exp_name={EXP_NAME}", f"machine={MACHINE}"]
+overrides = [f"exp_name={EXP_NAME}", f"machine={MACHINE}",
+             "data_transforms.shear=20","data_transforms.rotate=20",
+             "data_transforms.p_affine=1"
 
 # +
 cfg = compose("config.yaml", overrides=overrides)
@@ -98,6 +100,7 @@ model_parameter = cfg.model_parameter
 rotate = cfg.data_transforms.rotate
 scale = cfg.data_transforms.scale
 p_affine = cfg.data_transforms.p_affine
+shear = cfg.data_transforms.shear
 data_transforms = {
     'train': transforms.Compose([
         transforms.ToPILImage(),
@@ -355,5 +358,3 @@ for y_true, y_pred in zip(y_trues, y_preds):
     metrics_summary_df = metrics_summary_df.sort_values('recall')
     print(show_most_wrong(metrics_summary_df))
     print("================= I am separation line ============")
-
-
