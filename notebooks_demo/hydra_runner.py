@@ -1,3 +1,6 @@
+# %load_ext autoreload
+# %autoreload 2
+
 import hydra
 import os
 import numpy as np
@@ -24,23 +27,24 @@ from hw_grapheme.train_utils.train_test_split import stratified_split_kfold
 from omegaconf import DictConfig
 from tqdm.notebook import tqdm
 
-# # Init
-
 initialize(
     config_dir="configs", strict=True,
 )
 
+# # Init
+
 EXP_NAME = "regression"
 MACHINE = "1080ti"
+IS_WEIGHT_CLASS = False
 
 overrides = [f"exp_name={EXP_NAME}", f"machine={MACHINE}"]
 
+# +
 cfg = compose("config.yaml", overrides=overrides)
 print(cfg.pretty())
 
-# # Assign Config
+# Assign Config
 
-# +
 if cfg.exp_name =='base': 
     raise ValueError('Give me a proper exp name')
 print('EXP NAME', cfg.exp_name)
@@ -56,7 +60,7 @@ random_seed = cfg.random_seed
 
 # load processed data
 pickle_paths = [
-    #     DATA_PATH/"sample.pickle",
+#         DATA_PATH/"sample.pickle",
     DATA_PATH/"train_data_0.pickle",
     #     DATA_PATH/"train_data_1.pickle",
     #     DATA_PATH/"train_data_2.pickle",
@@ -89,7 +93,6 @@ mixed_precision = cfg.mix_precision
 model_arch = eval(cfg.model_arch)
 model_parameter = cfg.model_parameter
 # model_parameter = eval(cfg.model_parameter)
-# -
 
 # import image transforms config
 rotate = cfg.data_transforms.rotate
@@ -114,7 +117,6 @@ data_transforms = {
     ]),
 }
 
-# +
 swa = cfg.swa
 
 optimizer = eval(cfg.optimizer)
@@ -131,7 +133,7 @@ error_plateau_scheduler_func_para = cfg.error_plateau_scheduler_func_para
 # prob. of using ["mixup", "cutmix", "cross_entropy"] loss
 train_loss_prob = cfg.train_loss_prob
 mixup_alpha = cfg.mixup_alpha  
-cutmix_alpah = cfg.cutmix_alpha
+cutmix_alpha = cfg.cutmix_alpha
 
 # weighting of [root, vowel, consonant]
 head_weights = cfg.head_weights
@@ -141,7 +143,6 @@ wandb_log = cfg.wandb_log
 # save dir, set None to not save, need to manual create folders first
 save_dir = cfg.save_dir
 Path(save_dir).mkdir(parents=True, exist_ok=True)
-# -
 
 if is_weighted_class_loss:
     root_label = label_data[:, 0]
@@ -164,6 +165,7 @@ if is_weighted_class_loss:
     ]
 else:
     class_weights = None
+# -
 
 # # Training
 
@@ -315,14 +317,12 @@ y_trues , y_preds = [y1_ls, y2_ls, y3_ls], [y1_pred_ls, y2_pred_ls, y3_pred_ls]
 
 for y_true, y_pred in zip(y_trues, y_preds):
     print(sklearn.metrics.recall_score(y_true, y_pred, average='macro', zero_division='warn'))
-    
+
 
 for y_true, y_pred in zip(y_trues, y_preds):
     show_confusion_matrix(y_true, y_pred)   
     plt.show()
 
-
-
 for y_true, y_pred in zip(y_trues, y_preds):
     metrics = precision_recall_fscore_support(y_true, y_pred,average=None)
     precision, recall, fscore, support = metrics
@@ -340,5 +340,3 @@ for y_true, y_pred in zip(y_trues, y_preds):
     metrics_summary_df = metrics_summary_df.sort_values('recall')
     print(show_most_wrong(metrics_summary_df))
     print("================= I am separation line ============")
-
-

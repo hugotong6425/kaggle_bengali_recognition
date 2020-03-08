@@ -11,12 +11,12 @@ project: my-project
 
 # Custom config
 swa: False
-is_weighted_class_loss: True
+is_weighted_class_loss: False
 
 # prob. of using ["mixup", "cutmix", "cross_entropy"] loss
 mixup_alpha: 0.4
 cutmix_alpha: 1
-train_loss_prob: [0, 0, 1.0]
+train_loss_prob: [1,0,0]
 # # weighting of [root, vowel, consonant]
 head_weights: [0.5, 0.25, 0.25]
 
@@ -35,7 +35,7 @@ data_transforms:
 
 # Base Config
 random_seed: 2020
-num_workers: 6
+num_workers: 2
 pin_memory: True
 n_splits: 5
 n_epoch: 120
