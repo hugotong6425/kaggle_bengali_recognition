@@ -11,13 +11,19 @@ project: my-project
 
 # Custom config
 swa: False
+
+# ONLY CROSS_ENTROPY LOSS SUPPORT WEIGHTED CLASS LOSS NOW
 is_weighted_class_loss: True
 
-# prob. of using ["mixup", "cutmix", "cross_entropy", "ohem"] loss
-train_loss_prob: [0.0, 0.0, 1.0, 0.0]
-mixup_alpha: 0.4  # for mixup/cutmix only
-ohem_rate: 0.7  # for ohem only
-# # weighting of [root, vowel, consonant]
+# prob. of using ["cross_entropy", "ohem"] loss
+train_loss_prob_2: [1.0, 0.0]
+# prob. of using extra img augmentation ["mixup", "cutmix", "none"]
+extra_augmentation_prob: [0.0, 0.0, 1.0]
+# for mixup/cutmix only
+alpha: 0.4
+# for ohem only
+ohem_rate: 0.7  
+# weighted loss of [root, vowel, consonant]
 head_weights: [0.5, 0.25, 0.25]
 
 head: Head_1fc

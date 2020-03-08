@@ -129,8 +129,8 @@ error_plateau_scheduler_func = eval(cfg.error_plateau_scheduler_func)
 error_plateau_scheduler_func_para = cfg.error_plateau_scheduler_func_para
 
 # prob. of using ["mixup", "cutmix", "cross_entropy"] loss
-train_loss_prob = cfg.train_loss_prob
-mixup_alpha = cfg.mixup_alpha  # for mixup/cutmix only
+train_loss_prob_2 = cfg.train_loss_prob_2
+alpha = cfg.alpha  # for mixup/cutmix only
 ohem_rate = cfg.ohem_rate  # for ohem only
 
 # weighting of [root, vowel, consonant]
@@ -226,10 +226,11 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
         "dataloaders": data_loaders,
         "mixed_precision": mixed_precision,
         "ohem_rate": ohem_rate,
-        "train_loss_prob": train_loss_prob,
+        "train_loss_prob_2": train_loss_prob_2,
+        "extra_augmentation_prob": extra_augmentation_prob,
         "class_weights": class_weights,
         "head_weights": head_weights,
-        "mixup_alpha": mixup_alpha,
+        "alpha": alpha,
         "num_epochs": n_epoch,
         "epoch_scheduler": epoch_scheduler,
         "error_plateau_scheduler": error_plateau_scheduler,
@@ -239,3 +240,4 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     }
 
     callbacks = train_model(**train_input_args)
+
