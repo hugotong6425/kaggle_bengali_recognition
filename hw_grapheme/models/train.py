@@ -357,7 +357,7 @@ def train_model(
 
         no_aug_recorder = validate_phrase(model, dataloaders["no_aug"], wandb_log=wandb_log)
         print("Finish no aug validation")
-        valid_recorder.print_statistics()
+        no_aug_recorder.print_statistics()
         print()
 
         # update lr scheduler
