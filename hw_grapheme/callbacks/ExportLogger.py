@@ -162,5 +162,5 @@ class ExportLogger:
         # export csv
         if self.model_save_dir:
             pd.DataFrame(self.callbacks).to_csv(
-                os.path.join(self.save_dir, "callbacks.csv"), index=False
+                os.path.join(self.model_save_dir, "callbacks.csv"), index=False
             )
