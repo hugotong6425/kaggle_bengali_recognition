@@ -97,6 +97,7 @@ def train_phrase(
     head_weights,
     class_weights,
     mixup_alpha=0.4,
+    cutmix_alpha=1,
     batch_scheduler=None,
     wandb_log=True,
     start_swa=False
@@ -131,7 +132,7 @@ def train_phrase(
                 head_weights=head_weights,
             )
         elif train_method == "cutmix":
-            images, targets = cutmix(images, root, vowel, consonant, mixup_alpha)
+            images, targets = cutmix(images, root, vowel, consonant, cutmix_alpha)
             root_logit, vowel_logit, consonant_logit = model(images)
             loss = cutmix_criterion(
                 root_logit,
@@ -290,6 +291,15 @@ def train_model(
         "val_vowel_recall",
         "val_consonant_recall",
         "val_combined_recall",
+        "no_aug_train_loss",
+        "no_aug_train_root_acc",
+        "no_aug_train_vowel_acc",
+        "no_aug_train_consonant_acc",
+        "no_aug_train_combined_acc",
+        "no_aug_train_root_recall",
+        "no_aug_train_vowel_recall",
+        "no_aug_train_consonant_recall",
+        "no_aug_train_combined_recall",
     ]
     export_logger.define_field_to_record(list_of_field)
 
@@ -312,6 +322,7 @@ def train_model(
             head_weights,
             class_weights,
             mixup_alpha=mixup_alpha,
+            cutmix_alpha=cutmix_alpha,
             batch_scheduler=batch_scheduler,
             wandb_log=wandb_log,
             start_swa=start_swa,
@@ -334,13 +345,18 @@ def train_model(
         valid_recorder.print_statistics()
         print()
 
+        no_aug_recorder = validate_phrase(model, dataloaders["train"], wandb_log=wandb_log)
+        print("Finish no aug validation")
+        valid_recorder.print_statistics()
+        print()
+
         # update lr scheduler
         val_loss = valid_recorder.get_loss()
         if error_plateau_scheduler:
             error_plateau_scheduler.step(val_loss)
         
         # record training statistics into ExportLogger
-        export_logger.update_from_callbackrecorder(train_recorder, valid_recorder)
+        export_logger.update_from_callbackrecorder(train_recorder, valid_recorder, no_aug_recorder)
 
         # check whether val_loss gets lower/val_combined_recall gets higher
         # also save the model.pth is required

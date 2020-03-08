@@ -43,7 +43,7 @@ class ExportLogger:
         for field, value in zip(self.list_of_field, list_of_update):
             self.callbacks[field].append(value)
 
-    def update_from_callbackrecorder(self, train_recorder, val_recorder):
+    def update_from_callbackrecorder(self, train_recorder, val_recorder, no_aug_recorder):
         """
         use self.update with input of train_recorder and val_recorder
 
@@ -86,6 +86,15 @@ class ExportLogger:
             val_recorder.get_recall()
         )
 
+        # get no aug statistics
+        no_aug_loss = no_aug_recorder.get_loss()
+        no_aug_root_acc, no_aug_vowel_acc, no_aug_consonant_acc, no_aug_combined_acc = (
+            no_aug_recorder.get_accuracy()
+        )
+        no_aug_root_recall, no_aug_vowel_recall, no_aug_consonant_recall, no_aug_combined_recall = (
+            no_aug_recorder.get_recall()
+        )
+
         list_of_update = [
             train_loss,
             train_root_acc,
@@ -105,6 +114,15 @@ class ExportLogger:
             val_vowel_recall,
             val_consonant_recall,
             val_combined_recall,
+            no_aug_loss,
+            no_aug_root_acc,
+            no_aug_vowel_acc,
+            no_aug_consonant_acc,
+            no_aug_combined_acc,
+            no_aug_root_recall,
+            no_aug_vowel_recall,
+            no_aug_consonant_recall,
+            no_aug_combined_recall,
         ]
 
         self.update(list_of_update)
