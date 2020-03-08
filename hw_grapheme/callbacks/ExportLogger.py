@@ -19,7 +19,7 @@ class ExportLogger:
         now = datetime.datetime.now()
         now = now.strftime("%Y%m%d-%H%M%S")
         self.model_save_dir = self.save_dir/now
-        self.save_dir.mkdir(parents=True, exist_ok=True)
+        self.model_save_dir.mkdir(parents=True, exist_ok=True)
 
     def define_field_to_record(self, list_of_field):
         """ e.g. list_of_field = ["train_loss", "combined_recall"]

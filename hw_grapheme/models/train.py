@@ -16,7 +16,7 @@ from hw_grapheme.train_utils.loss_func import (
     cutmix_criterion,
     mixup_criterion,
 )
-
+device="cuda"
 
 ##### for mix up training
 def rand_bbox(size, lam):
@@ -39,18 +39,25 @@ def rand_bbox(size, lam):
 
 
 def cutmix(data, targets1, targets2, targets3, alpha):
-    indices = torch.randperm(data.size(0))
+    size = data.size(0)
+    indices = torch.randperm(size)
     shuffled_data = data[indices]
     shuffled_targets1 = targets1[indices]
     shuffled_targets2 = targets2[indices]
     shuffled_targets3 = targets3[indices]
 
-    lam = np.random.beta(alpha, alpha, size=indices.shape)
-    lam = np.vstack([lam, 1-lam]).max(axis=0) # Remove duplicate case
-    bbx1, bby1, bbx2, bby2 = rand_bbox(data.size(), lam)
-    data[:, :, bbx1:bbx2, bby1:bby2] = data[indices, :, bbx1:bbx2, bby1:bby2]
-    # adjust lambda to exactly match pixel ratio
-    lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (data.size()[-1] * data.size()[-2]))
+    torch_beta = torch.distributions.Beta(alpha, alpha)
+    lam = torch_beta.sample_n(size)
+    # Remove duplicate case
+    lam = torch.stack([lam, 1-lam]).max(0)[0]
+    # lam = lam.view(-1, 1, 1, 1)
+    for i, (indice_i, lam_i) in enumerate(zip(indices,lam)):
+        bbx1, bby1, bbx2, bby2 = rand_bbox(data.size(), lam_i)
+        data[i, :, bbx1:bbx2, bby1:bby2] = data[i, :, bbx1:bbx2, bby1:bby2]
+        # adjust lambda to exactly match pixel ratio
+        lam[i] = 1 - ((bbx2 - bbx1) * (bby2 - bby1) /
+                (data.size()[-1] * data.size()[-2]))
+    lam= lam.to(device)
 
     targets = [
         targets1,
@@ -65,15 +72,18 @@ def cutmix(data, targets1, targets2, targets3, alpha):
 
 
 def mixup(data, targets1, targets2, targets3, alpha):
-    indices = torch.randperm(data.size(0))
+    size = data.size(0)
+    indices = torch.randperm(size)
     shuffled_data = data[indices]
     shuffled_targets1 = targets1[indices]
     shuffled_targets2 = targets2[indices]
     shuffled_targets3 = targets3[indices]
 
-    lam = np.random.beta(alpha, alpha, size=indices.shape)
-    lam = np.vstack([lam, 1-lam]).max(axis=0) # Remove duplicate case
-    # lam = max(lam, 1 - lam)  # Remove duplicate case
+    torch_beta = torch.distributions.Beta(alpha, alpha)
+    lam = torch_beta.sample_n(size)
+    # Remove duplicate case
+    lam = torch.stack([lam, 1-lam]).max(0)[0].to(device)
+    lam = lam.view(-1,1,1,1)
     data = data * lam + shuffled_data * (1 - lam)
     targets = [
         targets1,
@@ -84,7 +94,6 @@ def mixup(data, targets1, targets2, targets3, alpha):
         shuffled_targets3,
         lam,
     ]
-
     return data, targets
 
 
@@ -248,6 +257,7 @@ def train_model(
     class_weights=None,
     head_weights=[0.5, 0.25, 0.25],
     mixup_alpha=0.4,
+    cutmix_alpha=1,
     num_epochs=25,
     epoch_scheduler=None,
     error_plateau_scheduler=None,

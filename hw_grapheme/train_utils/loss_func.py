@@ -86,14 +86,21 @@ def cutmix_criterion(preds1, preds2, preds3, targets, class_weights, head_weight
         vowel_class_weights = None
         consonant_class_weights = None
 
-    root_criterion = nn.CrossEntropyLoss(weight=root_class_weights, reduction="mean")
-    vowel_criterion = nn.CrossEntropyLoss(weight=vowel_class_weights, reduction="mean")
-    consonant_criterion = nn.CrossEntropyLoss(weight=consonant_class_weights, reduction="mean")
+    # root_criterion = nn.CrossEntropyLoss(weight=root_class_weights, reduction="mean")
+    # vowel_criterion = nn.CrossEntropyLoss(weight=vowel_class_weights, reduction="mean")
+    # consonant_criterion = nn.CrossEntropyLoss(weight=consonant_class_weights, reduction="mean")
+
+    root_criterion = nn.CrossEntropyLoss(
+        weight=root_class_weights, reduction="none")
+    vowel_criterion = nn.CrossEntropyLoss(
+        weight=vowel_class_weights, reduction="none")
+    consonant_criterion = nn.CrossEntropyLoss(
+        weight=consonant_class_weights, reduction="none")
     
     l1 = lam * root_criterion(preds1, targets1) + (1 - lam) * root_criterion(preds1, targets2)
     l2 = lam * vowel_criterion(preds2, targets3) + (1 - lam) * vowel_criterion(preds2, targets4)
     l3 = lam * consonant_criterion(preds3, targets5) + (1 - lam) * consonant_criterion(preds3, targets6)
-    return combine_loss(l1, l2, l3, head_weights)
+    return combine_loss(l1, l2, l3, head_weights).mean()
 
 
 def mixup_criterion(preds1, preds2, preds3, targets, class_weights, head_weights=[0.5, 0.25, 0.25]):
@@ -116,14 +123,21 @@ def mixup_criterion(preds1, preds2, preds3, targets, class_weights, head_weights
         vowel_class_weights = None
         consonant_class_weights = None
 
-    root_criterion = nn.CrossEntropyLoss(weight=root_class_weights, reduction="mean")
-    vowel_criterion = nn.CrossEntropyLoss(weight=vowel_class_weights, reduction="mean")
-    consonant_criterion = nn.CrossEntropyLoss(weight=consonant_class_weights, reduction="mean")
+    # root_criterion = nn.CrossEntropyLoss(weight=root_class_weights, reduction="mean")
+    # vowel_criterion = nn.CrossEntropyLoss(weight=vowel_class_weights, reduction="mean")
+    # consonant_criterion = nn.CrossEntropyLoss(weight=consonant_class_weights, reduction="mean")
+
+    root_criterion = nn.CrossEntropyLoss(weight=root_class_weights, reduction="none")
+    vowel_criterion = nn.CrossEntropyLoss(weight=vowel_class_weights, reduction="none")
+    consonant_criterion = nn.CrossEntropyLoss(weight=consonant_class_weights, reduction="none")
     
+    lam = lam.squeeze()
+    # import pdb
+    # pdb.set_trace()
     l1 = lam * root_criterion(preds1, targets1) + (1 - lam) * root_criterion(preds1, targets2)
     l2 = lam * vowel_criterion(preds2, targets3) + (1 - lam) * vowel_criterion(preds2, targets4)
     l3 = lam * consonant_criterion(preds3, targets5) + (1 - lam) * consonant_criterion(preds3, targets6)
-    return combine_loss(l1, l2, l3, head_weights)
+    return combine_loss(l1, l2, l3, head_weights).mean()
 
 
 def lin_comb(a, b, t):
