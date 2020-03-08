@@ -301,8 +301,10 @@ def show_most_wrong(df,n=10):
 
 def show_confusion_matrix(y_true, y_pred):
     confusion_mat = confusion_matrix(y_true, y_pred)
-    sns.heatmap(confusion_mat)
-
+    confusion_mat_normalized = confusion_mat / np.diag(confusion_mat) * 100 # normalize percentage
+    np.fill_diagonal(confusion_mat_normalized, 0)
+    sns.heatmap(confusion_mat_normalized,cmap='viridis')
+    return confusion_mat_normalized
 
 
 # -
@@ -320,12 +322,24 @@ for y_true, y_pred in zip(y_trues, y_preds):
     print(sklearn.metrics.recall_score(y_true, y_pred, average='macro', zero_division='warn'))
 
 
+# ## Heatmap confusion
+
+ls_conf_mat = []
 for y_true, y_pred in zip(y_trues, y_preds):
-    show_confusion_matrix(y_true, y_pred)   
+    ls_conf_mat.append(show_confusion_matrix(y_true, y_pred))
     plt.show()
 
+
+# ## Clustering confusion matrix
+
+for mat in ls_conf_mat:
+    a=sns.clustermap(mat, cmap='viridis')
+    sns.heatmap(a.data2d[:10])
+    plt.show()
+    break
+
 for y_true, y_pred in zip(y_trues, y_preds):
-    metrics = precision_recall_fscore_support(y_true, y_pred,average=None)
+    metrics = precision_recall_fscore_support(y_true, y_pred,average='macro')
     precision, recall, fscore, support = metrics
     data = np.vstack([recall, support, precision, fscore]); data.shape    
     metrics_summary_df = pd.DataFrame(data=data.T, columns=['recall', 'support','precision','fscore'])
