@@ -2,8 +2,8 @@ defaults:
   - machine: 2080ti
 
 # Directory Config
-DATA_PATH: D:\kaggle\kaggle_bengali_recognition\data\processed\size_128
-save_dir: D:\kaggle\kaggle_bengali_recognition\models\baseline-1080ti
+DATA_PATH: /home/hugo/Desktop/kaggle/kaggle_bengali_recognition/data/processed/size_128
+save_dir: /home/hugo/Desktop/kaggle/kaggle_bengali_recognition/models/testing
 
 wandb_log: True
 exp_name: base
@@ -11,15 +11,23 @@ project: my-project
 
 # Custom config
 swa: False
+
+# ONLY CROSS_ENTROPY LOSS SUPPORT WEIGHTED CLASS LOSS NOW
 is_weighted_class_loss: False
 
-# prob. of using ["mixup", "cutmix", "cross_entropy"] loss
+# prob. of using ["cross_entropy", "ohem"] loss
+train_loss_prob_2: [1.0, 0.0]
+# prob. of using extra img augmentation ["mixup", "cutmix", "none"]
+extra_augmentation_prob: [1.0, 0.0, 0.0]
+# for mixup/cutmix only
 mixup_alpha: 0.4
 cutmix_alpha: 1
-train_loss_prob: [1,0,0]
-# # weighting of [root, vowel, consonant]
+# for ohem only
+ohem_rate: 0.7
+# weighted loss of [root, vowel, consonant]
 head_weights: [0.5, 0.25, 0.25]
 
+head: Head_1fc
 optimizer: optim.Adam
 optimizer_parameter: {}
 model_arch: se_resnext50
@@ -28,7 +36,7 @@ error_plateau_scheduler_func: None
 error_plateau_scheduler_func_para: {}
 epoch_scheduler_func: None
 epoch_scheduler_func_para: {}
-data_transforms: 
+data_transforms:
   rotate: 10
   scale: [1.0, 1.1]
   p_affine: 0.75
