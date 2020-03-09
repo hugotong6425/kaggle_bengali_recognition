@@ -55,19 +55,20 @@ def create_dataloaders_train(
     )
 
     # Quick Hack, we need subset of trainset for validation only.
+    print("Creating Train with no aug dataloader...")
     no_aug_dataset = GraphemeDataset_train(
-    image_data[train_idx][:10000],
-    label_data[train_idx][:10000],
-    transforms=data_transforms["val"],
+        image_data[train_idx][:10000],
+        label_data[train_idx][:10000],
+        transforms=data_transforms["val"],
     )
 
     no_aug_loader = DataLoader(
-    no_aug_dataset,
-    batch_size=batch_size * 2,
-    num_workers=num_workers,
-    pin_memory=pin_memory,
+        no_aug_dataset,
+        batch_size=batch_size * 2,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
     )
 
-    data_loaders = {"train": train_loader, "val": val_loader,"no_aug": no_aug_loader}
+    data_loaders = {"train": train_loader, "val": val_loader, "no_aug": no_aug_loader}
 
     return data_loaders
