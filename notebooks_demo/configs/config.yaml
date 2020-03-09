@@ -2,8 +2,8 @@ defaults:
   - machine: 2080ti
 
 # Directory Config
-DATA_PATH: D:\kaggle\kaggle_bengali_recognition\data\processed\size_128
-save_dir: D:\kaggle\kaggle_bengali_recognition\models\baseline-1080ti
+DATA_PATH: /home/hugo/Desktop/kaggle/kaggle_bengali_recognition/data/processed/size_128
+save_dir: /home/hugo/Desktop/kaggle/kaggle_bengali_recognition/models/testing
 
 wandb_log: True
 exp_name: base
@@ -13,7 +13,7 @@ project: my-project
 swa: False
 
 # ONLY CROSS_ENTROPY LOSS SUPPORT WEIGHTED CLASS LOSS NOW
-is_weighted_class_loss: True
+is_weighted_class_loss: False
 
 # prob. of using ["cross_entropy", "ohem"] loss
 train_loss_prob_2: [1.0, 0.0]
