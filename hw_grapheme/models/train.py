@@ -19,7 +19,8 @@ from hw_grapheme.train_utils.loss_func import (
     mixup_criterion,
     ohem_loss,
 )
-device="cuda"
+
+device = "cuda"
 
 ##### for cutmix training
 def rand_bbox(size, lam):
@@ -52,15 +53,16 @@ def cutmix_data(data, targets1, targets2, targets3, alpha):
     torch_beta = torch.distributions.Beta(alpha, alpha)
     lam = torch_beta.sample_n(size)
     # Remove duplicate case
-    lam = torch.stack([lam, 1-lam]).max(0)[0]
+    lam = torch.stack([lam, 1 - lam]).max(0)[0]
     # lam = lam.view(-1, 1, 1, 1)
-    for i, (indice_i, lam_i) in enumerate(zip(indices,lam)):
+    for i, (indice_i, lam_i) in enumerate(zip(indices, lam)):
         bbx1, bby1, bbx2, bby2 = rand_bbox(data.size(), lam_i)
         data[i, :, bbx1:bbx2, bby1:bby2] = data[i, :, bbx1:bbx2, bby1:bby2]
         # adjust lambda to exactly match pixel ratio
-        lam[i] = 1 - ((bbx2 - bbx1) * (bby2 - bby1) /
-                (data.size()[-1] * data.size()[-2]))
-    lam= lam.to(device)
+        lam[i] = 1 - (
+            (bbx2 - bbx1) * (bby2 - bby1) / (data.size()[-1] * data.size()[-2])
+        )
+    lam = lam.to(device)
 
     targets = [
         targets1,
@@ -85,8 +87,8 @@ def mixup_data(data, targets1, targets2, targets3, alpha):
     torch_beta = torch.distributions.Beta(alpha, alpha)
     lam = torch_beta.sample_n(size)
     # Remove duplicate case
-    lam = torch.stack([lam, 1-lam]).max(0)[0].to(device)
-    lam = lam.view(-1,1,1,1)
+    lam = torch.stack([lam, 1 - lam]).max(0)[0].to(device)
+    lam = lam.view(-1, 1, 1, 1)
     data = data * lam + shuffled_data * (1 - lam)
     targets = [
         targets1,
@@ -111,7 +113,7 @@ def train_phrase(
     class_weights,
     mixup_alpha=0.4,
     cutmix_alpha=1,
-    ohem_rate,
+    ohem_rate=0.7,
     batch_scheduler=None,
     wandb_log=False,
     start_swa=False,
@@ -240,7 +242,6 @@ def train_phrase(
             consonant.data,
         )
 
-
     recorder.evaluate()
     # root_true, root_predict = recorder.evaluate()
     # return root_true, root_predict
@@ -251,7 +252,7 @@ def train_phrase(
     return recorder
 
 
-def validate_phrase(model, valid_dataloader, wandb_log=True, phrase='val'):
+def validate_phrase(model, valid_dataloader, wandb_log=True, phrase="val"):
     recorder = CallbackRecorder()
 
     # Each epoch has a training and validation phase
@@ -429,7 +430,9 @@ def train_model(
         valid_recorder.print_statistics()
         print()
 
-        no_aug_recorder = validate_phrase(model, dataloaders["no_aug"], wandb_log=wandb_log, phrase='no aug')
+        no_aug_recorder = validate_phrase(
+            model, dataloaders["no_aug"], wandb_log=wandb_log, phrase="no aug"
+        )
         print("Finish no aug validation")
         no_aug_recorder.print_statistics()
         print()
@@ -440,7 +443,9 @@ def train_model(
             error_plateau_scheduler.step(val_loss)
 
         # record training statistics into ExportLogger
-        export_logger.update_from_callbackrecorder(train_recorder, valid_recorder, no_aug_recorder)
+        export_logger.update_from_callbackrecorder(
+            train_recorder, valid_recorder, no_aug_recorder
+        )
 
         # check whether val_loss gets lower/val_combined_recall gets higher
         # also save the model.pth is required

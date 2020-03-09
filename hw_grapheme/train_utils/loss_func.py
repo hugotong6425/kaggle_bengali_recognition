@@ -86,7 +86,7 @@ def no_extra_augmentation_criterion(
     l2 = loss_criteria(preds2, targets2, **vowel_arg)
     l3 = loss_criteria(preds3, targets3, **consonant_arg)
 
-    return combine_loss(l1, l2, l3, head_weights)
+    return combine_loss(l1, l2, l3, head_weights).mean()
 
 
 def cutmix_criterion(
