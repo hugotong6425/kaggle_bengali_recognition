@@ -118,6 +118,9 @@ def train_phrase(
     wandb_log=False,
     start_swa=False,
 ):
+    if mixed_precision:
+        from apex import amp
+
     recorder = CallbackRecorder()
     model.train()  # Set model to training mode
 
@@ -346,8 +349,8 @@ def train_model(
         class_weight[1], len 11, weight of vowel
         class_weight[2], len 7, weight of consonant
     """
-    if mixed_precision:
-        from apex import amp
+    # if mixed_precision:
+    #     from apex import amp
     since = time.time()
 
     export_logger = ExportLogger(save_dir)
