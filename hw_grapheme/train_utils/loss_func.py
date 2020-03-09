@@ -42,32 +42,63 @@ class CombineLabelSmoothingCrossEntropy(nn.Module):
         return combine_loss(l1, l2, l3)
 
 
-def cross_entropy_criterion(
-    preds1, preds2, preds3, targets, class_weights, head_weights=[0.5, 0.25, 0.25]
+def ohem_loss(cls_pred, cls_target, ohem_rate):
+    batch_size = cls_pred.size(0)
+    ohem_cls_loss = F.cross_entropy(
+        cls_pred, cls_target, reduction="none", ignore_index=-1
+    )
+
+    sorted_ohem_loss, idx = torch.sort(ohem_cls_loss, descending=True)
+    keep_num = min(sorted_ohem_loss.size()[0], int(batch_size * ohem_rate))
+    if keep_num < sorted_ohem_loss.size()[0]:
+        keep_idx_cuda = idx[:keep_num]
+        ohem_cls_loss = ohem_cls_loss[keep_idx_cuda]
+    cls_loss = ohem_cls_loss.sum() / keep_num
+    return cls_loss
+
+
+# def ohem_criterion(preds1, preds2, preds3, targets, ohem_rate, head_weights=[0.5, 0.25, 0.25]):
+#     targets1, targets2, targets3 = targets[0], targets[1], targets[2]
+
+#     l1 = ohem_loss(preds1, targets1, ohem_rate)
+#     l2 = ohem_loss(preds2, targets2, ohem_rate)
+#     l3 = ohem_loss(preds3, targets3, ohem_rate)
+
+#     return combine_loss(l1, l2, l3, head_weights)
+
+
+def no_extra_augmentation_criterion(
+    preds1,
+    preds2,
+    preds3,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.5, 0.25, 0.25],
 ):
     targets1, targets2, targets3 = targets[0], targets[1], targets[2]
-    
-    if class_weights:
-        root_class_weights = class_weights[0]
-        vowel_class_weights = class_weights[1]
-        consonant_class_weights = class_weights[2]
-    else:
-        root_class_weights = None
-        vowel_class_weights = None
-        consonant_class_weights = None
 
-    root_criterion = nn.CrossEntropyLoss(weight=root_class_weights, reduction="mean")
-    vowel_criterion = nn.CrossEntropyLoss(weight=vowel_class_weights, reduction="mean")
-    consonant_criterion = nn.CrossEntropyLoss(weight=consonant_class_weights, reduction="mean")
-    
-    l1 = root_criterion(preds1, targets1)
-    l2 = vowel_criterion(preds2, targets2)
-    l3 = consonant_criterion(preds3, targets3)
+    root_arg = loss_criteria_paras["root"]
+    vowel_arg = loss_criteria_paras["vowel"]
+    consonant_arg = loss_criteria_paras["consonant"]
+
+    l1 = loss_criteria(preds1, targets1, **root_arg)
+    l2 = loss_criteria(preds2, targets2, **vowel_arg)
+    l3 = loss_criteria(preds3, targets3, **consonant_arg)
+
     return combine_loss(l1, l2, l3, head_weights)
 
 
-def cutmix_criterion(preds1, preds2, preds3, targets, class_weights, head_weights=[0.5, 0.25, 0.25]):
-    targets1, targets2, targets3, targets4, targets5, targets6, lam = (
+def cutmix_criterion(
+    preds1,
+    preds2,
+    preds3,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.5, 0.25, 0.25],
+):
+    targets1, shuffle_targets1, targets2, shuffle_targets2, targets3, shuffle_targets3, lam = (
         targets[0],
         targets[1],
         targets[2],
@@ -76,35 +107,40 @@ def cutmix_criterion(preds1, preds2, preds3, targets, class_weights, head_weight
         targets[5],
         targets[6],
     )
-    
-    if class_weights:
-        root_class_weights = class_weights[0]
-        vowel_class_weights = class_weights[1]
-        consonant_class_weights = class_weights[2]
-    else:
-        root_class_weights = None
-        vowel_class_weights = None
-        consonant_class_weights = None
 
-    # root_criterion = nn.CrossEntropyLoss(weight=root_class_weights, reduction="mean")
-    # vowel_criterion = nn.CrossEntropyLoss(weight=vowel_class_weights, reduction="mean")
-    # consonant_criterion = nn.CrossEntropyLoss(weight=consonant_class_weights, reduction="mean")
+    # root_criterion = loss_criteria()
+    # vowel_criterion = loss_criteria(**loss_criteria_paras["vowel"])
+    # consonant_criterion = loss_criteria(**loss_criteria_paras["consonant"])
 
-    root_criterion = nn.CrossEntropyLoss(
-        weight=root_class_weights, reduction="none")
-    vowel_criterion = nn.CrossEntropyLoss(
-        weight=vowel_class_weights, reduction="none")
-    consonant_criterion = nn.CrossEntropyLoss(
-        weight=consonant_class_weights, reduction="none")
-    
-    l1 = lam * root_criterion(preds1, targets1) + (1 - lam) * root_criterion(preds1, targets2)
-    l2 = lam * vowel_criterion(preds2, targets3) + (1 - lam) * vowel_criterion(preds2, targets4)
-    l3 = lam * consonant_criterion(preds3, targets5) + (1 - lam) * consonant_criterion(preds3, targets6)
+    root_arg = loss_criteria_paras["root"]
+    vowel_arg = loss_criteria_paras["vowel"]
+    consonant_arg = loss_criteria_paras["consonant"]
+
+    root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)
+    root_shuffle = lam * loss_criteria(preds1, shuffle_targets1, **root_arg)
+    l1 = root_unshuffle + root_shuffle
+
+    vowel_unshuffle = lam * loss_criteria(preds2, targets2, **vowel_arg)
+    vowel_shuffle = lam * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
+    l2 = vowel_unshuffle + vowel_shuffle
+
+    consonant_unshuffle = lam * loss_criteria(preds3, targets3, **consonant_arg)
+    consonant_shuffle = lam * loss_criteria(preds3, shuffle_targets3, **consonant_arg)
+    l3 = consonant_unshuffle + consonant_shuffle
+
     return combine_loss(l1, l2, l3, head_weights).mean()
 
 
-def mixup_criterion(preds1, preds2, preds3, targets, class_weights, head_weights=[0.5, 0.25, 0.25]):
-    targets1, targets2, targets3, targets4, targets5, targets6, lam = (
+def mixup_criterion(
+    preds1,
+    preds2,
+    preds3,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.5, 0.25, 0.25],
+):
+    targets1, shuffle_targets1, targets2, shuffle_targets2, targets3, shuffle_targets3, lam = (
         targets[0],
         targets[1],
         targets[2],
@@ -114,29 +150,24 @@ def mixup_criterion(preds1, preds2, preds3, targets, class_weights, head_weights
         targets[6],
     )
 
-    if class_weights:
-        root_class_weights = class_weights[0]
-        vowel_class_weights = class_weights[1]
-        consonant_class_weights = class_weights[2]
-    else:
-        root_class_weights = None
-        vowel_class_weights = None
-        consonant_class_weights = None
+    root_arg = loss_criteria_paras["root"]
+    vowel_arg = loss_criteria_paras["vowel"]
+    consonant_arg = loss_criteria_paras["consonant"]
 
-    # root_criterion = nn.CrossEntropyLoss(weight=root_class_weights, reduction="mean")
-    # vowel_criterion = nn.CrossEntropyLoss(weight=vowel_class_weights, reduction="mean")
-    # consonant_criterion = nn.CrossEntropyLoss(weight=consonant_class_weights, reduction="mean")
-
-    root_criterion = nn.CrossEntropyLoss(weight=root_class_weights, reduction="none")
-    vowel_criterion = nn.CrossEntropyLoss(weight=vowel_class_weights, reduction="none")
-    consonant_criterion = nn.CrossEntropyLoss(weight=consonant_class_weights, reduction="none")
-    
     lam = lam.squeeze()
-    # import pdb
-    # pdb.set_trace()
-    l1 = lam * root_criterion(preds1, targets1) + (1 - lam) * root_criterion(preds1, targets2)
-    l2 = lam * vowel_criterion(preds2, targets3) + (1 - lam) * vowel_criterion(preds2, targets4)
-    l3 = lam * consonant_criterion(preds3, targets5) + (1 - lam) * consonant_criterion(preds3, targets6)
+
+    root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)
+    root_shuffle = lam * loss_criteria(preds1, shuffle_targets1, **root_arg)
+    l1 = root_unshuffle + root_shuffle
+
+    vowel_unshuffle = lam * loss_criteria(preds2, targets2, **vowel_arg)
+    vowel_shuffle = lam * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
+    l2 = vowel_unshuffle + vowel_shuffle
+
+    consonant_unshuffle = lam * loss_criteria(preds3, targets3, **consonant_arg)
+    consonant_shuffle = lam * loss_criteria(preds3, shuffle_targets3, **consonant_arg)
+    l3 = consonant_unshuffle + consonant_shuffle
+
     return combine_loss(l1, l2, l3, head_weights).mean()
 
 

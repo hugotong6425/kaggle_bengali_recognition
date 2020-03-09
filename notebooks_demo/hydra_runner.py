@@ -21,6 +21,7 @@ from hydra.experimental import compose, initialize
 
 from hw_grapheme.io.load_data import load_processed_data
 from hw_grapheme.model_archs.se_resnext import se_resnext50
+from hw_grapheme.model_archs.head import Head_1fc, Head_3fc
 from hw_grapheme.models.train import train_model
 from hw_grapheme.train_utils.create_dataloader import create_dataloaders_train
 from hw_grapheme.train_utils.train_test_split import stratified_split_kfold
@@ -31,15 +32,10 @@ initialize(
     config_dir="configs", strict=True,
 )
 
-# # Init
-
 EXP_NAME = "regression"
 MACHINE = "1080ti"
-IS_WEIGHT_CLASS = False
 
-overrides = [f"exp_name={EXP_NAME}", f"machine={MACHINE}",
-             "data_transforms.shear=20","data_transforms.rotate=20",
-             "data_transforms.p_affine=1"
+overrides = [f"exp_name={EXP_NAME}", f"machine={MACHINE}"]
 
 # +
 cfg = compose("config.yaml", overrides=overrides)
@@ -62,7 +58,7 @@ random_seed = cfg.random_seed
 
 # load processed data
 pickle_paths = [
-#         DATA_PATH/"sample.pickle",
+    #     DATA_PATH/"sample.pickle",
     DATA_PATH/"train_data_0.pickle",
     #     DATA_PATH/"train_data_1.pickle",
     #     DATA_PATH/"train_data_2.pickle",
@@ -93,7 +89,8 @@ batch_size = cfg.batch_size
 mixed_precision = cfg.mix_precision
 
 model_arch = eval(cfg.model_arch)
-model_parameter = cfg.model_parameter
+model_parameter = dict(cfg.model_parameter)
+model_parameter["head"] = eval(cfg.head)
 # model_parameter = eval(cfg.model_parameter)
 
 # import image transforms config
@@ -134,9 +131,11 @@ error_plateau_scheduler_func = eval(cfg.error_plateau_scheduler_func)
 error_plateau_scheduler_func_para = cfg.error_plateau_scheduler_func_para
 
 # prob. of using ["mixup", "cutmix", "cross_entropy"] loss
-train_loss_prob = cfg.train_loss_prob
-mixup_alpha = cfg.mixup_alpha  
+mixup_alpha = cfg.mixup_alpha
 cutmix_alpha = cfg.cutmix_alpha
+train_loss_prob_2 = cfg.train_loss_prob_2
+extra_augmentation_prob = cfg.extra_augmentation_prob
+ohem_rate = cfg.ohem_rate  # for ohem only
 
 # weighting of [root, vowel, consonant]
 head_weights = cfg.head_weights
@@ -168,7 +167,6 @@ if is_weighted_class_loss:
     ]
 else:
     class_weights = None
-# -
 
 # # Training
 
@@ -230,7 +228,9 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
         "optimizer": optimizer_ft,
         "dataloaders": data_loaders,
         "mixed_precision": mixed_precision,
-        "train_loss_prob": train_loss_prob,
+        "ohem_rate": ohem_rate,
+        "train_loss_prob_2": train_loss_prob_2,
+        "extra_augmentation_prob": extra_augmentation_prob,
         "class_weights": class_weights,
         "head_weights": head_weights,
         "mixup_alpha": mixup_alpha,
@@ -250,10 +250,10 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
 # +
 for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     data_loaders = create_dataloaders_train(
-    image_data, name_data, label_data, train_idx, valid_idx, 
+    image_data, name_data, label_data, train_idx, valid_idx,
     data_transforms, batch_size, num_workers, pin_memory)
     break
-    
+
 ls = []
 y1_ls = []
 y2_ls = []
@@ -265,7 +265,7 @@ y3_pred_ls = []
 # -
 
 for i in tqdm(data_loaders['val']):
-    x,y1,y2,y3 = i 
+    x,y1,y2,y3 = i
     with torch.no_grad():
         y_pred = model(x.cuda())
         y1_pred, y2_pred ,y3_pred = y_pred
@@ -278,7 +278,7 @@ for i in tqdm(data_loaders['val']):
         y1= y1.detach().cpu().numpy()
         y2=y2.detach().cpu().numpy()
         y3=y3.detach().cpu().numpy()
-        
+
         ls.append(y_pred)
         y1_ls.append(y1)
         y2_ls.append(y2)
@@ -344,7 +344,7 @@ for mat in ls_conf_mat:
 for y_true, y_pred in zip(y_trues, y_preds):
     metrics = precision_recall_fscore_support(y_true, y_pred,average='macro')
     precision, recall, fscore, support = metrics
-    data = np.vstack([recall, support, precision, fscore]); data.shape    
+    data = np.vstack([recall, support, precision, fscore]); data.shape
     metrics_summary_df = pd.DataFrame(data=data.T, columns=['recall', 'support','precision','fscore'])
     metrics_summary_df = metrics_summary_df.sort_values('recall')
     print(show_most_wrong(metrics_summary_df))
@@ -353,7 +353,7 @@ for y_true, y_pred in zip(y_trues, y_preds):
 for y_true, y_pred in zip(y_trues, y_preds):
     metrics = precision_recall_fscore_support(y_true, y_pred,average=None)
     precision, recall, fscore, support = metrics
-    data = np.vstack([recall, support, precision, fscore]); data.shape    
+    data = np.vstack([recall, support, precision, fscore]); data.shape
     metrics_summary_df = pd.DataFrame(data=data.T, columns=['recall', 'support','precision','fscore'])
     metrics_summary_df = metrics_summary_df.sort_values('recall')
     print(show_most_wrong(metrics_summary_df))

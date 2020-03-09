@@ -6,19 +6,22 @@ import wandb
 import numpy as np
 import pandas as pd
 
+from torch import nn
+import torch.nn.functional as F
 
 from tqdm import tqdm_notebook
 
 from hw_grapheme.callbacks.CallbackRecorder import CallbackRecorder
 from hw_grapheme.callbacks.ExportLogger import ExportLogger
 from hw_grapheme.train_utils.loss_func import (
-    cross_entropy_criterion,
+    no_extra_augmentation_criterion,
     cutmix_criterion,
     mixup_criterion,
+    ohem_loss,
 )
 device="cuda"
 
-##### for mix up training
+##### for cutmix training
 def rand_bbox(size, lam):
     W = size[2]
     H = size[3]
@@ -38,7 +41,7 @@ def rand_bbox(size, lam):
     return bbx1, bby1, bbx2, bby2
 
 
-def cutmix(data, targets1, targets2, targets3, alpha):
+def cutmix_data(data, targets1, targets2, targets3, alpha):
     size = data.size(0)
     indices = torch.randperm(size)
     shuffled_data = data[indices]
@@ -71,7 +74,7 @@ def cutmix(data, targets1, targets2, targets3, alpha):
     return data, targets
 
 
-def mixup(data, targets1, targets2, targets3, alpha):
+def mixup_data(data, targets1, targets2, targets3, alpha):
     size = data.size(0)
     indices = torch.randperm(size)
     shuffled_data = data[indices]
@@ -102,20 +105,24 @@ def train_phrase(
     optimizer,
     train_dataloader,
     mixed_precision,
-    train_loss_prob,
+    train_loss_prob_2,
+    extra_augmentation_prob,
     head_weights,
     class_weights,
     mixup_alpha=0.4,
     cutmix_alpha=1,
+    ohem_rate,
     batch_scheduler=None,
-    wandb_log=True,
-    start_swa=False
+    wandb_log=False,
+    start_swa=False,
 ):
     recorder = CallbackRecorder()
     model.train()  # Set model to training mode
 
     # Iterate over data.
-    for i, (images, root, vowel, consonant) in enumerate(tqdm_notebook(train_dataloader)):
+    for i, (images, root, vowel, consonant) in enumerate(
+        tqdm_notebook(train_dataloader)
+    ):
         images = images.to("cuda")
         root = root.long().to("cuda")
         vowel = vowel.long().to("cuda")
@@ -126,42 +133,88 @@ def train_phrase(
 
         # forward with all root vowel consonant outputs
         # with torch.set_grad_enabled(True):
-        train_method_choice_list = ["mixup", "cutmix", "cross_entropy"]
-        train_method = np.random.choice(train_method_choice_list, 1, p=train_loss_prob)
 
-        if train_method == "mixup":
-            images, targets = mixup(images, root, vowel, consonant, mixup_alpha)
+        # determine whether loss function to use
+        train_loss_2_choice_list = ["cross_entropy", "ohem"]
+        train_loss_2 = np.random.choice(
+            train_loss_2_choice_list, 1, p=train_loss_prob_2
+        )
+
+        if train_loss_2 == ["cross_entropy"]:
+            loss_criteria = F.cross_entropy
+
+            # currently only cross_entropy loss support weighted class loss
+            if class_weights:
+                root_class_weights = class_weights[0]
+                vowel_class_weights = class_weights[1]
+                consonant_class_weights = class_weights[2]
+            else:
+                root_class_weights = None
+                vowel_class_weights = None
+                consonant_class_weights = None
+
+            # store the args pass into loas_criteria for each head
+            loss_criteria_paras = {
+                "root": {"weight": root_class_weights, "reduction": "none"},
+                "vowel": {"weight": vowel_class_weights, "reduction": "none"},
+                "consonant": {"weight": consonant_class_weights, "reduction": "none"},
+            }
+        elif train_loss_2 == ["ohem"]:
+            loss_criteria = ohem_loss
+
+            # store the args pass into loas_criteria for each head
+            loss_criteria_paras = {
+                "root": {"ohem_rate": ohem_rate},
+                "vowel": {"ohem_rate": ohem_rate},
+                "consonant": {"ohem_rate": ohem_rate},
+            }
+        else:
+            print("ERROR in train phrase train_loss_2.")
+
+        # determine whether extra img augmentation is used
+        extra_augmentation_choice_list = ["mixup", "cutmix", "none"]
+        extra_augmentation = np.random.choice(
+            extra_augmentation_choice_list, 1, p=extra_augmentation_prob
+        )
+
+        if extra_augmentation == ["mixup"]:
+            images, targets = mixup_data(images, root, vowel, consonant, mixup_alpha)
             root_logit, vowel_logit, consonant_logit = model(images)
             loss = mixup_criterion(
                 root_logit,
                 vowel_logit,
                 consonant_logit,
                 targets,
-                class_weights,
+                loss_criteria,
+                loss_criteria_paras,
                 head_weights=head_weights,
             )
-        elif train_method == "cutmix":
-            images, targets = cutmix(images, root, vowel, consonant, cutmix_alpha)
+        elif extra_augmentation == ["cutmix"]:
+            images, targets = cutmix_data(images, root, vowel, consonant, cutmix_alpha)
             root_logit, vowel_logit, consonant_logit = model(images)
             loss = cutmix_criterion(
                 root_logit,
                 vowel_logit,
                 consonant_logit,
                 targets,
-                class_weights,
+                loss_criteria,
+                loss_criteria_paras,
                 head_weights=head_weights,
             )
-        elif train_method == "cross_entropy":
+        elif extra_augmentation == ["none"]:
             root_logit, vowel_logit, consonant_logit = model(images)
             targets = (root, vowel, consonant)
-            loss = cross_entropy_criterion(
+            loss = no_extra_augmentation_criterion(
                 root_logit,
                 vowel_logit,
                 consonant_logit,
                 targets,
-                class_weights,
+                loss_criteria,
+                loss_criteria_paras,
                 head_weights=head_weights,
             )
+        else:
+            print("ERROR in train phrase extra augmentation.")
 
         # backward + optimize
         if mixed_precision:
@@ -221,13 +274,30 @@ def validate_phrase(model, valid_dataloader, wandb_log=True, phrase='val'):
         with torch.no_grad():
             root_logit, vowel_logit, consonant_logit = model(images)
             targets = (root, vowel, consonant)
-            loss = cross_entropy_criterion(
+
+            # default use class weighted cross entropy loss for val set
+            loss_criteria = F.cross_entropy
+            loss_criteria_paras = {
+                "root": {"weight": None, "reduction": "none"},
+                "vowel": {"weight": None, "reduction": "none"},
+                "consonant": {"weight": None, "reduction": "none"},
+            }
+            # root_class_weights = class_weights[0]
+            # vowel_class_weights = class_weights[1]
+            # consonant_class_weights = class_weights[2]
+            # loss_criteria_paras = {
+            #     "root": {"weight": root_class_weights, "reduction": "mean"},
+            #     "vowel": {"weight": vowel_class_weights, "reduction": "mean"},
+            #     "consonant": {"weight": consonant_class_weights, "reduction": "mean"},
+            # }
+            loss = no_extra_augmentation_criterion(
                 root_logit,
                 vowel_logit,
                 consonant_logit,
                 targets,
-                class_weights=None,
-                head_weights=[1 / 3, 1 / 3, 1 / 3],
+                loss_criteria,
+                loss_criteria_paras,
+                head_weights=[0.5, 0.25, 0.25],
             )
 
         recorder.update(
@@ -253,11 +323,13 @@ def train_model(
     optimizer,
     dataloaders,
     mixed_precision,
-    train_loss_prob,
+    train_loss_prob_2,
+    extra_augmentation_prob,
     class_weights=None,
     head_weights=[0.5, 0.25, 0.25],
     mixup_alpha=0.4,
     cutmix_alpha=1,
+    ohem_rate=0.7,
     num_epochs=25,
     epoch_scheduler=None,
     error_plateau_scheduler=None,
@@ -316,35 +388,37 @@ def train_model(
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
-        
+
         # SWA
         start_swa = False
         if swa:
-            if num_epochs - epoch < 30 : # Start averaging at last 25% ep
-                start_swa = True                
-                   
+            if num_epochs - epoch < 30:  # Start averaging at last 25% ep
+                start_swa = True
+
         train_recorder = train_phrase(
-            model,
-            optimizer,
-            dataloaders["train"],
-            mixed_precision,
-            train_loss_prob,
-            head_weights,
-            class_weights,
+            model=model,
+            optimizer=optimizer,
+            train_dataloader=dataloaders["train"],
+            mixed_precision=mixed_precision,
+            train_loss_prob_2=train_loss_prob_2,
+            extra_augmentation_prob=extra_augmentation_prob,
+            head_weights=head_weights,
+            class_weights=class_weights,
+            ohem_rate=ohem_rate,
             mixup_alpha=mixup_alpha,
             cutmix_alpha=cutmix_alpha,
             batch_scheduler=batch_scheduler,
             wandb_log=wandb_log,
             start_swa=start_swa,
-                  )
-        
+        )
+
         if start_swa:
-            print('CycleLR snapshot') # Update once per ep
+            print("CycleLR snapshot")  # Update once per ep
             optimizer.update_swa()
-            if epoch == (num_epochs -1): # Merge at end of last ep
+            if epoch == (num_epochs - 1):  # Merge at end of last ep
                 optimizer.swap_swa_sgd()
-                optimizer.bn_update(dataloaders['train'], model) # Update batch stat
-                print('SWA Merge Models')
+                optimizer.bn_update(dataloaders["train"], model)  # Update batch stat
+                print("SWA Merge Models")
 
         print("Finish training")
         train_recorder.print_statistics()
@@ -364,7 +438,7 @@ def train_model(
         val_loss = valid_recorder.get_loss()
         if error_plateau_scheduler:
             error_plateau_scheduler.step(val_loss)
-        
+
         # record training statistics into ExportLogger
         export_logger.update_from_callbackrecorder(train_recorder, valid_recorder, no_aug_recorder)
 
