@@ -118,7 +118,7 @@ def cutmix_criterion(
 
     root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)     
     vowel_unshuffle = lam * loss_criteria(preds2, targets2, **vowel_arg)
-    consonant_unshuffle = 1-lam * loss_criteria(preds3, targets3, **consonant_arg)
+    consonant_unshuffle = lam * loss_criteria(preds3, targets3, **consonant_arg)
     
     root_shuffle = (1-lam) * loss_criteria(preds1, shuffle_targets1, **root_arg)
     vowel_shuffle = (1-lam) * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
@@ -156,7 +156,7 @@ def mixup_criterion(
 
     root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)     
     vowel_unshuffle = lam * loss_criteria(preds2, targets2, **vowel_arg)
-    consonant_unshuffle = 1-lam * loss_criteria(preds3, targets3, **consonant_arg)
+    consonant_unshuffle = lam * loss_criteria(preds3, targets3, **consonant_arg)
     
     root_shuffle = (1-lam) * loss_criteria(preds1, shuffle_targets1, **root_arg)
     vowel_shuffle = (1-lam) * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
