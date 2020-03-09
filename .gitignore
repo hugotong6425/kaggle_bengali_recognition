@@ -19,7 +19,7 @@ data
 *.yml
 settings
 *.pth
-*.ipynb
+# *.ipynb
 *.log
 wandb/
 outputs/
