@@ -22,7 +22,7 @@ extra_augmentation_prob: [0.0, 0.0, 1.0]
 # for mixup/cutmix only
 alpha: 0.4
 # for ohem only
-ohem_rate: 0.7  
+ohem_rate: 0.7
 # weighted loss of [root, vowel, consonant]
 head_weights: [0.5, 0.25, 0.25]
 
@@ -35,7 +35,7 @@ error_plateau_scheduler_func: None
 error_plateau_scheduler_func_para: {}
 epoch_scheduler_func: None
 epoch_scheduler_func_para: {}
-data_transforms: 
+data_transforms:
   rotate: 10
   scale: [1.0, 1.1]
   p_affine: 0.75

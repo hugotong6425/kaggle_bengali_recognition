@@ -43,12 +43,13 @@ class CombineLabelSmoothingCrossEntropy(nn.Module):
 
 
 def ohem_loss(cls_pred, cls_target, ohem_rate):
-
-    batch_size = cls_pred.size(0) 
-    ohem_cls_loss = F.cross_entropy(cls_pred, cls_target, reduction='none', ignore_index=-1)
+    batch_size = cls_pred.size(0)
+    ohem_cls_loss = F.cross_entropy(
+        cls_pred, cls_target, reduction="none", ignore_index=-1
+    )
 
     sorted_ohem_loss, idx = torch.sort(ohem_cls_loss, descending=True)
-    keep_num = min(sorted_ohem_loss.size()[0], int(batch_size*ohem_rate) )
+    keep_num = min(sorted_ohem_loss.size()[0], int(batch_size * ohem_rate))
     if keep_num < sorted_ohem_loss.size()[0]:
         keep_idx_cuda = idx[:keep_num]
         ohem_cls_loss = ohem_cls_loss[keep_idx_cuda]
@@ -67,23 +68,35 @@ def ohem_loss(cls_pred, cls_target, ohem_rate):
 
 
 def no_extra_augmentation_criterion(
-    preds1, preds2, preds3, targets, loss_criteria, loss_criteria_paras, head_weights=[0.5, 0.25, 0.25]
+    preds1,
+    preds2,
+    preds3,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.5, 0.25, 0.25],
 ):
     targets1, targets2, targets3 = targets[0], targets[1], targets[2]
 
     root_criterion = loss_criteria(**loss_criteria_paras["root"])
     vowel_criterion = loss_criteria(**loss_criteria_paras["vowel"])
     consonant_criterion = loss_criteria(**loss_criteria_paras["consonant"])
-    
+
     l1 = root_criterion(preds1, targets1)
     l2 = vowel_criterion(preds2, targets2)
     l3 = consonant_criterion(preds3, targets3)
-    
+
     return combine_loss(l1, l2, l3, head_weights)
 
 
 def cutmix_criterion(
-    preds1, preds2, preds3, targets, loss_criteria, loss_criteria_paras, head_weights=[0.5, 0.25, 0.25]
+    preds1,
+    preds2,
+    preds3,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.5, 0.25, 0.25],
 ):
     targets1, shuffle_targets1, targets2, shuffle_targets2, targets3, shuffle_targets3, lam = (
         targets[0],
@@ -94,20 +107,32 @@ def cutmix_criterion(
         targets[5],
         targets[6],
     )
-    
+
     root_criterion = loss_criteria(**loss_criteria_paras["root"])
     vowel_criterion = loss_criteria(**loss_criteria_paras["vowel"])
     consonant_criterion = loss_criteria(**loss_criteria_paras["consonant"])
-    
-    l1 = lam * root_criterion(preds1, targets1) + (1 - lam) * root_criterion(preds1, shuffle_targets1)
-    l2 = lam * vowel_criterion(preds2, targets2) + (1 - lam) * vowel_criterion(preds2, shuffle_targets2)
-    l3 = lam * consonant_criterion(preds3, targets3) + (1 - lam) * consonant_criterion(preds3, shuffle_targets3)
+
+    l1 = lam * root_criterion(preds1, targets1) + (1 - lam) * root_criterion(
+        preds1, shuffle_targets1
+    )
+    l2 = lam * vowel_criterion(preds2, targets2) + (1 - lam) * vowel_criterion(
+        preds2, shuffle_targets2
+    )
+    l3 = lam * consonant_criterion(preds3, targets3) + (1 - lam) * consonant_criterion(
+        preds3, shuffle_targets3
+    )
 
     return combine_loss(l1, l2, l3, head_weights)
 
 
 def mixup_criterion(
-    preds1, preds2, preds3, targets, loss_criteria, loss_criteria_paras, head_weights=[0.5, 0.25, 0.25]
+    preds1,
+    preds2,
+    preds3,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.5, 0.25, 0.25],
 ):
     targets1, shuffle_targets1, targets2, shuffle_targets2, targets3, shuffle_targets3, lam = (
         targets[0],
@@ -118,14 +143,20 @@ def mixup_criterion(
         targets[5],
         targets[6],
     )
-    
+
     root_criterion = loss_criteria(**loss_criteria_paras["root"])
     vowel_criterion = loss_criteria(**loss_criteria_paras["vowel"])
     consonant_criterion = loss_criteria(**loss_criteria_paras["consonant"])
-    
-    l1 = lam * root_criterion(preds1, targets1) + (1 - lam) * root_criterion(preds1, shuffle_targets1)
-    l2 = lam * vowel_criterion(preds2, targets2) + (1 - lam) * vowel_criterion(preds2, shuffle_targets2)
-    l3 = lam * consonant_criterion(preds3, targets3) + (1 - lam) * consonant_criterion(preds3, shuffle_targets3)
+
+    l1 = lam * root_criterion(preds1, targets1) + (1 - lam) * root_criterion(
+        preds1, shuffle_targets1
+    )
+    l2 = lam * vowel_criterion(preds2, targets2) + (1 - lam) * vowel_criterion(
+        preds2, shuffle_targets2
+    )
+    l3 = lam * consonant_criterion(preds3, targets3) + (1 - lam) * consonant_criterion(
+        preds3, shuffle_targets3
+    )
 
     return combine_loss(l1, l2, l3, head_weights)
 
