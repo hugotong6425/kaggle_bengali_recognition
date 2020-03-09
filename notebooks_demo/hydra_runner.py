@@ -1,3 +1,6 @@
+# %load_ext autoreload
+# %autoreload 2
+
 import hydra
 import os
 import numpy as np
@@ -86,7 +89,7 @@ batch_size = cfg.batch_size
 mixed_precision = cfg.mix_precision
 
 model_arch = eval(cfg.model_arch)
-model_parameter = cfg.model_parameter
+model_parameter = dict(cfg.model_parameter)
 model_parameter["head"] = eval(cfg.head)
 # model_parameter = eval(cfg.model_parameter)
 # -
@@ -99,7 +102,7 @@ data_transforms = {
     'train': transforms.Compose([
         transforms.ToPILImage(),
         transforms.RandomApply(
-            [transforms.RandomAffine(degrees=rotate, scale=scale)],
+            [transforms.RandomAffine(degrees=rotate, scale=list(scale))],
             p=p_affine,
         ),
         transforms.Grayscale(num_output_channels=3),
@@ -130,6 +133,7 @@ error_plateau_scheduler_func_para = cfg.error_plateau_scheduler_func_para
 
 # prob. of using ["mixup", "cutmix", "cross_entropy"] loss
 train_loss_prob_2 = cfg.train_loss_prob_2
+extra_augmentation_prob = cfg.extra_augmentation_prob
 alpha = cfg.alpha  # for mixup/cutmix only
 ohem_rate = cfg.ohem_rate  # for ohem only
 
@@ -166,6 +170,8 @@ else:
     class_weights = None
 
 # # Training
+
+extra_augmentation_prob
 
 for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     # skip unwanted fold
@@ -240,4 +246,16 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     }
 
     callbacks = train_model(**train_input_args)
+
+
+pip install wandb --upgrade
+
+# +
+root_arg = loss_criteria_paras["root"]
+vowel_arg = loss_criteria_paras["vowel"]
+consonant_arg = loss_criteria_paras["consonant"]
+
+l1 = root_criterion(preds1, targets1, **root_arg)
+l2 = vowel_criterion(preds2, targets2, **vowel_arg)
+l3 = consonant_criterion(preds3, targets3, **consonant_arg)
 

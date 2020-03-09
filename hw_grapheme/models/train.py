@@ -6,15 +6,18 @@ import wandb
 import numpy as np
 import pandas as pd
 
+from torch import nn
+import torch.nn.functional as F
 
 from tqdm import tqdm_notebook
 
 from hw_grapheme.callbacks.CallbackRecorder import CallbackRecorder
 from hw_grapheme.callbacks.ExportLogger import ExportLogger
 from hw_grapheme.train_utils.loss_func import (
-    cross_entropy_criterion,
+    no_extra_augmentation_criterion,
     cutmix_criterion,
     mixup_criterion,
+    ohem_loss,
 )
 
 
@@ -86,6 +89,7 @@ def mixup_data(data, targets1, targets2, targets3, alpha):
 
     return data, targets
 
+
 def train_phrase(
     model,
     optimizer,
@@ -99,13 +103,15 @@ def train_phrase(
     alpha,
     batch_scheduler=None,
     wandb_log=False,
-    start_swa=False
+    start_swa=False,
 ):
     recorder = CallbackRecorder()
     model.train()  # Set model to training mode
 
     # Iterate over data.
-    for i, (images, root, vowel, consonant) in enumerate(tqdm_notebook(train_dataloader)):
+    for i, (images, root, vowel, consonant) in enumerate(
+        tqdm_notebook(train_dataloader)
+    ):
         images = images.to("cuda")
         root = root.long().to("cuda")
         vowel = vowel.long().to("cuda")
@@ -124,7 +130,7 @@ def train_phrase(
         )
 
         if train_loss_2 == ["cross_entropy"]:
-            loss_criteria = nn.CrossEntropyLoss
+            loss_criteria = F.cross_entropy
 
             # currently only cross_entropy loss support weighted class loss
             if class_weights:
@@ -135,12 +141,12 @@ def train_phrase(
                 root_class_weights = None
                 vowel_class_weights = None
                 consonant_class_weights = None
-            
+
             # store the args pass into loas_criteria for each head
             loss_criteria_paras = {
-                "root": {"weight":root_class_weights, "reduction": "mean"},
-                "vowel": {"weight":vowel_class_weights, "reduction": "mean"},
-                "consonant": {"weight":consonant_class_weights, "reduction": "mean"},
+                "root": {"weight": root_class_weights, "reduction": "mean"},
+                "vowel": {"weight": vowel_class_weights, "reduction": "mean"},
+                "consonant": {"weight": consonant_class_weights, "reduction": "mean"},
             }
         elif train_loss_2 == ["ohem"]:
             loss_criteria = ohem_loss
@@ -168,7 +174,7 @@ def train_phrase(
                 vowel_logit,
                 consonant_logit,
                 targets,
-                loss_criteria, 
+                loss_criteria,
                 loss_criteria_paras,
                 head_weights=head_weights,
             )
@@ -180,7 +186,7 @@ def train_phrase(
                 vowel_logit,
                 consonant_logit,
                 targets,
-                loss_criteria, 
+                loss_criteria,
                 loss_criteria_paras,
                 head_weights=head_weights,
             )
@@ -192,13 +198,12 @@ def train_phrase(
                 vowel_logit,
                 consonant_logit,
                 targets,
-                loss_criteria, 
+                loss_criteria,
                 loss_criteria_paras,
                 head_weights=head_weights,
             )
         else:
             print("ERROR in train phrase extra augmentation.")
-
 
         # backward + optimize
         if mixed_precision:
@@ -223,7 +228,6 @@ def train_phrase(
             vowel.data,
             consonant.data,
         )
-
 
     recorder.evaluate()
     # root_true, root_predict = recorder.evaluate()
@@ -258,13 +262,30 @@ def validate_phrase(model, valid_dataloader, wandb_log=True):
         with torch.no_grad():
             root_logit, vowel_logit, consonant_logit = model(images)
             targets = (root, vowel, consonant)
-            loss = cross_entropy_criterion(
+
+            # default use class weighted cross entropy loss for val set
+            loss_criteria = F.cross_entropy
+            loss_criteria_paras = {
+                "root": {"weight": None, "reduction": "mean"},
+                "vowel": {"weight": None, "reduction": "mean"},
+                "consonant": {"weight": None, "reduction": "mean"},
+            }
+            # root_class_weights = class_weights[0]
+            # vowel_class_weights = class_weights[1]
+            # consonant_class_weights = class_weights[2]
+            # loss_criteria_paras = {
+            #     "root": {"weight": root_class_weights, "reduction": "mean"},
+            #     "vowel": {"weight": vowel_class_weights, "reduction": "mean"},
+            #     "consonant": {"weight": consonant_class_weights, "reduction": "mean"},
+            # }
+            loss = no_extra_augmentation_criterion(
                 root_logit,
                 vowel_logit,
                 consonant_logit,
                 targets,
-                class_weights=None,
-                head_weights=[1 / 3, 1 / 3, 1 / 3],
+                loss_criteria,
+                loss_criteria_paras,
+                head_weights=[0.5, 0.25, 0.25],
             )
 
         recorder.update(
@@ -295,6 +316,7 @@ def train_model(
     class_weights=None,
     head_weights=[0.5, 0.25, 0.25],
     alpha=0.4,
+    ohem_rate=0.7,
     num_epochs=25,
     epoch_scheduler=None,
     error_plateau_scheduler=None,
@@ -344,13 +366,13 @@ def train_model(
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)
-        
+
         # SWA
         start_swa = False
         if swa:
-            if num_epochs - epoch < 30 : # Start averaging at last 25% ep
-                start_swa = True                
-                   
+            if num_epochs - epoch < 30:  # Start averaging at last 25% ep
+                start_swa = True
+
         train_recorder = train_phrase(
             model=model,
             optimizer=optimizer,
@@ -368,12 +390,12 @@ def train_model(
         )
 
         if start_swa:
-            print('CycleLR snapshot') # Update once per ep
+            print("CycleLR snapshot")  # Update once per ep
             optimizer.update_swa()
-            if epoch == (num_epochs -1): # Merge at end of last ep
+            if epoch == (num_epochs - 1):  # Merge at end of last ep
                 optimizer.swap_swa_sgd()
-                optimizer.bn_update(dataloaders['train'], model) # Update batch stat
-                print('SWA Merge Models')
+                optimizer.bn_update(dataloaders["train"], model)  # Update batch stat
+                print("SWA Merge Models")
 
         print("Finish training")
         train_recorder.print_statistics()
@@ -388,7 +410,7 @@ def train_model(
         val_loss = valid_recorder.get_loss()
         if error_plateau_scheduler:
             error_plateau_scheduler.step(val_loss)
-        
+
         # record training statistics into ExportLogger
         export_logger.update_from_callbackrecorder(train_recorder, valid_recorder)
 

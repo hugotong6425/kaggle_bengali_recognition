@@ -149,8 +149,8 @@ class SeResNeXt(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
+        # x = self.avgpool(x)
+        # x = x.view(x.size(0), -1)
 
         logit_root = self.head_root(x)
         logit_vowel = self.head_vowel(x)

@@ -10,6 +10,8 @@ class Head_1fc(nn.Module):
         self.fc = nn.Linear(input_dim, out_dim)
 
     def forward(self, x):
+        x = self.avgpool(x)
+        x = x.view(x.size(0), -1)
         return self.fc(x)
 
 
@@ -41,13 +43,7 @@ class Head_3fc(nn.Module):
         def forward(self, x):
             return MishFunction.apply(x)
 
-    def bn_drop_lin(
-        n_in: int,
-        n_out: int,
-        bn: bool = True,
-        p: float = 0.0,
-        actn: Optional[nn.Module] = None,
-    ):
+    def bn_drop_lin(n_in: int, n_out: int, bn: bool = True, p: float = 0.0, actn=None):
         "Sequence of batchnorm (if `bn`), dropout (with `p`) and linear (`n_in`,`n_out`) layers followed by `actn`."
         layers = [nn.BatchNorm1d(n_in)] if bn else []
         if p != 0:
@@ -57,10 +53,10 @@ class Head_3fc(nn.Module):
             layers.append(actn)
         return layers
 
-    class AdaptiveConcatPool2d(Module):
+    class AdaptiveConcatPool2d(nn.Module):
         "Layer that concats `AdaptiveAvgPool2d` and `AdaptiveMaxPool2d`."
 
-        def __init__(self, sz: Optional[int] = None):
+        def __init__(self, sz=None):
             "Output will be 2*sz or 2 if sz is None"
             self.output_size = sz or 1
             self.ap = nn.AdaptiveAvgPool2d(self.output_size)
@@ -69,7 +65,7 @@ class Head_3fc(nn.Module):
         def forward(self, x):
             return torch.cat([self.mp(x), self.ap(x)], 1)
 
-    class Flatten(Module):
+    class Flatten(nn.Module):
         "Flatten `x` to a single dimension, often used at the end of a model. `full` for rank-1 tensor"
 
         def __init__(self, full: bool = False):
