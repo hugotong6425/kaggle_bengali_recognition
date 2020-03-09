@@ -116,18 +116,18 @@ def cutmix_criterion(
     vowel_arg = loss_criteria_paras["vowel"]
     consonant_arg = loss_criteria_paras["consonant"]
 
-    root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)
-    root_shuffle = lam * loss_criteria(preds1, shuffle_targets1, **root_arg)
-    l1 = root_unshuffle + root_shuffle
-
+    root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)     
     vowel_unshuffle = lam * loss_criteria(preds2, targets2, **vowel_arg)
-    vowel_shuffle = lam * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
+    consonant_unshuffle = 1-lam * loss_criteria(preds3, targets3, **consonant_arg)
+    
+    root_shuffle = (1-lam) * loss_criteria(preds1, shuffle_targets1, **root_arg)
+    vowel_shuffle = (1-lam) * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
+    consonant_shuffle = (1-lam) * loss_criteria(preds3, shuffle_targets3, **consonant_arg)
+    
+    l1 = root_unshuffle + root_shuffle
     l2 = vowel_unshuffle + vowel_shuffle
-
-    consonant_unshuffle = lam * loss_criteria(preds3, targets3, **consonant_arg)
-    consonant_shuffle = lam * loss_criteria(preds3, shuffle_targets3, **consonant_arg)
     l3 = consonant_unshuffle + consonant_shuffle
-
+       
     return combine_loss(l1, l2, l3, head_weights).mean()
 
 
@@ -154,18 +154,16 @@ def mixup_criterion(
     vowel_arg = loss_criteria_paras["vowel"]
     consonant_arg = loss_criteria_paras["consonant"]
 
-    lam = lam.squeeze()
-
-    root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)
-    root_shuffle = lam * loss_criteria(preds1, shuffle_targets1, **root_arg)
-    l1 = root_unshuffle + root_shuffle
-
+    root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)     
     vowel_unshuffle = lam * loss_criteria(preds2, targets2, **vowel_arg)
-    vowel_shuffle = lam * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
+    consonant_unshuffle = 1-lam * loss_criteria(preds3, targets3, **consonant_arg)
+    
+    root_shuffle = (1-lam) * loss_criteria(preds1, shuffle_targets1, **root_arg)
+    vowel_shuffle = (1-lam) * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
+    consonant_shuffle = (1-lam) * loss_criteria(preds3, shuffle_targets3, **consonant_arg)
+    
+    l1 = root_unshuffle + root_shuffle
     l2 = vowel_unshuffle + vowel_shuffle
-
-    consonant_unshuffle = lam * loss_criteria(preds3, targets3, **consonant_arg)
-    consonant_shuffle = lam * loss_criteria(preds3, shuffle_targets3, **consonant_arg)
     l3 = consonant_unshuffle + consonant_shuffle
 
     return combine_loss(l1, l2, l3, head_weights).mean()

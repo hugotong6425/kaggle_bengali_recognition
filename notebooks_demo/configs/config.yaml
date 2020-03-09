@@ -18,7 +18,7 @@ is_weighted_class_loss: False
 # prob. of using ["cross_entropy", "ohem"] loss
 train_loss_prob_2: [1.0, 0.0]
 # prob. of using extra img augmentation ["mixup", "cutmix", "none"]
-extra_augmentation_prob: [0.0, 0.0, 1.0]
+extra_augmentation_prob: [1.0, 0.0, 0.0]
 # for mixup/cutmix only
 mixup_alpha: 0.4
 cutmix_alpha: 1
