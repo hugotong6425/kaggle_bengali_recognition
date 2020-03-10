@@ -2,8 +2,8 @@ defaults:
   - machine: 2080ti
 
 # Directory Config
-DATA_PATH: /home/hugo/Desktop/kaggle/kaggle_bengali_recognition/data/processed/size_128
-save_dir: /home/hugo/Desktop/kaggle/kaggle_bengali_recognition/models/testing
+DATA_PATH: /home/yani/hugo/kaggle/kaggle_bengali_recognition/data/processed/size_128_v2
+save_dir: /home/yani/hugo/kaggle/kaggle_bengali_recognition/models/head3fc
 
 wandb_log: True
 exp_name: base

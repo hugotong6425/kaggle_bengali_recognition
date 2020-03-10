@@ -8,6 +8,13 @@ def load_raw_data(pickle_paths, image_size):
 
 
 def load_processed_data(pickle_paths, image_size):
+    if isinstance(image_size, int):
+        image_size_0 = image_size
+        image_size_1 = image_size
+    else:
+        image_size_0 = image_size[0]
+        image_size_1 = image_size[1]
+        
     # load data from pickle
     image_data = []
     name_data = []
@@ -27,7 +34,7 @@ def load_processed_data(pickle_paths, image_size):
     # print(image_data.shape, name_data.shape, label_data.shape)
 
     image_data = image_data.reshape(
-        image_data.shape[0] * image_data.shape[1], image_size, image_size
+        image_data.shape[0] * image_data.shape[1], image_size_0, image_size_1
     )
     name_data = name_data.reshape(-1)
     label_data = label_data.reshape(label_data.shape[0] * label_data.shape[1], 3)
