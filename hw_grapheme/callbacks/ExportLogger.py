@@ -4,6 +4,8 @@ from pathlib import Path
 import pandas as pd
 import datetime
 
+
+
 class ExportLogger:
     """ Export csv and model.pth"""
 
@@ -19,7 +21,7 @@ class ExportLogger:
         now = datetime.datetime.now()
         now = now.strftime("%Y%m%d-%H%M%S")
         self.model_save_dir = self.save_dir/now
-        self.save_dir.mkdir(parents=True, exist_ok=True)
+        self.model_save_dir.mkdir(parents=True, exist_ok=True)
 
     def define_field_to_record(self, list_of_field):
         """ e.g. list_of_field = ["train_loss", "combined_recall"]
@@ -162,5 +164,5 @@ class ExportLogger:
         # export csv
         if self.model_save_dir:
             pd.DataFrame(self.callbacks).to_csv(
-                os.path.join(self.save_dir, "callbacks.csv"), index=False
+                os.path.join(self.model_save_dir, "callbacks.csv"), index=False
             )

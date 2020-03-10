@@ -1,3 +1,6 @@
+# %load_ext autoreload
+# %autoreload 2
+
 import hydra
 import os
 import numpy as np
@@ -18,13 +21,12 @@ from hydra.experimental import compose, initialize
 
 from hw_grapheme.io.load_data import load_processed_data
 from hw_grapheme.model_archs.se_resnext import se_resnext50
+from hw_grapheme.model_archs.head import Head_1fc, Head_3fc
 from hw_grapheme.models.train import train_model
 from hw_grapheme.train_utils.create_dataloader import create_dataloaders_train
 from hw_grapheme.train_utils.train_test_split import stratified_split_kfold
 from omegaconf import DictConfig
 from tqdm.notebook import tqdm
-
-# # Init
 
 initialize(
     config_dir="configs", strict=True,
@@ -35,12 +37,12 @@ MACHINE = "1080ti"
 
 overrides = [f"exp_name={EXP_NAME}", f"machine={MACHINE}"]
 
+# +
 cfg = compose("config.yaml", overrides=overrides)
 print(cfg.pretty())
 
-# # Assign Config
+# Assign Config
 
-# +
 if cfg.exp_name =='base': 
     raise ValueError('Give me a proper exp name')
 print('EXP NAME', cfg.exp_name)
@@ -87,14 +89,15 @@ batch_size = cfg.batch_size
 mixed_precision = cfg.mix_precision
 
 model_arch = eval(cfg.model_arch)
-model_parameter = cfg.model_parameter
+model_parameter = dict(cfg.model_parameter)
+model_parameter["head"] = eval(cfg.head)
 # model_parameter = eval(cfg.model_parameter)
-# -
 
 # import image transforms config
 rotate = cfg.data_transforms.rotate
 scale = cfg.data_transforms.scale
 p_affine = cfg.data_transforms.p_affine
+shear = cfg.data_transforms.shear
 data_transforms = {
     'train': transforms.Compose([
         transforms.ToPILImage(),
@@ -114,7 +117,6 @@ data_transforms = {
     ]),
 }
 
-# +
 swa = cfg.swa
 
 optimizer = eval(cfg.optimizer)
@@ -129,9 +131,11 @@ error_plateau_scheduler_func = eval(cfg.error_plateau_scheduler_func)
 error_plateau_scheduler_func_para = cfg.error_plateau_scheduler_func_para
 
 # prob. of using ["mixup", "cutmix", "cross_entropy"] loss
-train_loss_prob = cfg.train_loss_prob
-mixup_alpha = cfg.mixup_alpha  
-cutmix_alpah = cfg.cutmix_alpha
+mixup_alpha = cfg.mixup_alpha
+cutmix_alpha = cfg.cutmix_alpha
+train_loss_prob_2 = cfg.train_loss_prob_2
+extra_augmentation_prob = cfg.extra_augmentation_prob
+ohem_rate = cfg.ohem_rate  # for ohem only
 
 # weighting of [root, vowel, consonant]
 head_weights = cfg.head_weights
@@ -141,7 +145,6 @@ wandb_log = cfg.wandb_log
 # save dir, set None to not save, need to manual create folders first
 save_dir = cfg.save_dir
 Path(save_dir).mkdir(parents=True, exist_ok=True)
-# -
 
 if is_weighted_class_loss:
     root_label = label_data[:, 0]
@@ -225,7 +228,9 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
         "optimizer": optimizer_ft,
         "dataloaders": data_loaders,
         "mixed_precision": mixed_precision,
-        "train_loss_prob": train_loss_prob,
+        "ohem_rate": ohem_rate,
+        "train_loss_prob_2": train_loss_prob_2,
+        "extra_augmentation_prob": extra_augmentation_prob,
         "class_weights": class_weights,
         "head_weights": head_weights,
         "mixup_alpha": mixup_alpha,
@@ -245,9 +250,10 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
 # +
 for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     data_loaders = create_dataloaders_train(
-    image_data, name_data, label_data, train_idx, valid_idx, 
+    image_data, name_data, label_data, train_idx, valid_idx,
     data_transforms, batch_size, num_workers, pin_memory)
-    
+    break
+
 ls = []
 y1_ls = []
 y2_ls = []
@@ -259,7 +265,7 @@ y3_pred_ls = []
 # -
 
 for i in tqdm(data_loaders['val']):
-    x,y1,y2,y3 = i 
+    x,y1,y2,y3 = i
     with torch.no_grad():
         y_pred = model(x.cuda())
         y1_pred, y2_pred ,y3_pred = y_pred
@@ -272,7 +278,7 @@ for i in tqdm(data_loaders['val']):
         y1= y1.detach().cpu().numpy()
         y2=y2.detach().cpu().numpy()
         y3=y3.detach().cpu().numpy()
-        
+
         ls.append(y_pred)
         y1_ls.append(y1)
         y2_ls.append(y2)
@@ -298,8 +304,10 @@ def show_most_wrong(df,n=10):
 
 def show_confusion_matrix(y_true, y_pred):
     confusion_mat = confusion_matrix(y_true, y_pred)
-    sns.heatmap(confusion_mat)
-
+    confusion_mat_normalized = confusion_mat / np.diag(confusion_mat) * 100 # normalize percentage
+    np.fill_diagonal(confusion_mat_normalized, 0)
+    sns.heatmap(confusion_mat_normalized,cmap='viridis')
+    return confusion_mat_normalized
 
 
 # -
@@ -315,18 +323,28 @@ y_trues , y_preds = [y1_ls, y2_ls, y3_ls], [y1_pred_ls, y2_pred_ls, y3_pred_ls]
 
 for y_true, y_pred in zip(y_trues, y_preds):
     print(sklearn.metrics.recall_score(y_true, y_pred, average='macro', zero_division='warn'))
-    
 
+
+# ## Heatmap confusion
+
+ls_conf_mat = []
 for y_true, y_pred in zip(y_trues, y_preds):
-    show_confusion_matrix(y_true, y_pred)   
+    ls_conf_mat.append(show_confusion_matrix(y_true, y_pred))
     plt.show()
 
 
+# ## Clustering confusion matrix
+
+for mat in ls_conf_mat:
+    a=sns.clustermap(mat, cmap='viridis')
+    sns.heatmap(a.data2d[:10])
+    plt.show()
+    break
 
 for y_true, y_pred in zip(y_trues, y_preds):
-    metrics = precision_recall_fscore_support(y_true, y_pred,average=None)
+    metrics = precision_recall_fscore_support(y_true, y_pred,average='macro')
     precision, recall, fscore, support = metrics
-    data = np.vstack([recall, support, precision, fscore]); data.shape    
+    data = np.vstack([recall, support, precision, fscore]); data.shape
     metrics_summary_df = pd.DataFrame(data=data.T, columns=['recall', 'support','precision','fscore'])
     metrics_summary_df = metrics_summary_df.sort_values('recall')
     print(show_most_wrong(metrics_summary_df))
@@ -335,10 +353,8 @@ for y_true, y_pred in zip(y_trues, y_preds):
 for y_true, y_pred in zip(y_trues, y_preds):
     metrics = precision_recall_fscore_support(y_true, y_pred,average=None)
     precision, recall, fscore, support = metrics
-    data = np.vstack([recall, support, precision, fscore]); data.shape    
+    data = np.vstack([recall, support, precision, fscore]); data.shape
     metrics_summary_df = pd.DataFrame(data=data.T, columns=['recall', 'support','precision','fscore'])
     metrics_summary_df = metrics_summary_df.sort_values('recall')
     print(show_most_wrong(metrics_summary_df))
     print("================= I am separation line ============")
-
-

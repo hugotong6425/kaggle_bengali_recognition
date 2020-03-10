@@ -3,7 +3,7 @@ import math
 
 from torch import nn
 
-from hw_grapheme.model_archs.head import Head_1fc
+# from hw_grapheme.model_archs.head import Head_1fc
 
 
 class Selayer(nn.Module):
@@ -82,7 +82,7 @@ class Bottleneck(nn.Module):
 
 
 class SeResNeXt(nn.Module):
-    def __init__(self, block, layers, cardinality=32, num_classes=1000):
+    def __init__(self, block, layers, head, cardinality=32):
         super(SeResNeXt, self).__init__()
         self.cardinality = cardinality
         self.inplanes = 64
@@ -97,12 +97,12 @@ class SeResNeXt(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
 
-        self.avgpool = nn.AdaptiveAvgPool2d(1)
+        # the pooling is moved into the head
+        # self.avgpool = nn.AdaptiveAvgPool2d(1)
 
-        self.head_root = Head_1fc(512 * block.expansion, 168)
-        self.head_vowel = Head_1fc(512 * block.expansion, 11)
-        self.head_consonant = Head_1fc(512 * block.expansion, 7)
-        # self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.head_root = head(512 * block.expansion, 168)
+        self.head_vowel = head(512 * block.expansion, 11)
+        self.head_consonant = head(512 * block.expansion, 7)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -149,8 +149,8 @@ class SeResNeXt(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
+        # x = self.avgpool(x)
+        # x = x.view(x.size(0), -1)
 
         logit_root = self.head_root(x)
         logit_vowel = self.head_vowel(x)
@@ -159,28 +159,28 @@ class SeResNeXt(nn.Module):
         return logit_root, logit_vowel, logit_consonant
 
 
-def se_resnext50(**kwargs):
+def se_resnext50(head, **kwargs):
     """Constructs a SeResNeXt-50 model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = SeResNeXt(Bottleneck, [3, 4, 6, 3], **kwargs)
+    model = SeResNeXt(Bottleneck, [3, 4, 6, 3], head, **kwargs)
     return model
 
 
-def se_resnext101(**kwargs):
+def se_resnext101(head, **kwargs):
     """Constructs a SeResNeXt-101 model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = SeResNeXt(Bottleneck, [3, 4, 23, 3], **kwargs)
+    model = SeResNeXt(Bottleneck, [3, 4, 23, 3], head, **kwargs)
     return model
 
 
-def se_resnext152(**kwargs):
+def se_resnext152(head, **kwargs):
     """Constructs a SeResNeXt-152 model.
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
-    model = SeResNeXt(Bottleneck, [3, 8, 36, 3], **kwargs)
+    model = SeResNeXt(Bottleneck, [3, 8, 36, 3], head, **kwargs)
     return model
