@@ -1,7 +1,12 @@
+# +
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch.nn import Conv2d, BatchNorm2d
+
+
+# -
 
 class Head_1fc(nn.Module):
     def __init__(self, input_dim, out_dim):
@@ -108,3 +113,55 @@ class Head_3fc(nn.Module):
 
     def forward(self, x):
         return self.fc(x)
+
+
+# -
+
+class Head_3conv_3fc(nn.Module):
+    def __init__(self, input_dim, out_dim, ps=0.5):
+        super().__init__()
+        
+        self.conv1 = Conv2d(input_dim, 1024, kernel_size=(1, 1), stride=(1, 1), bias=False)
+        self.bn1 = BatchNorm2d(1024)
+        self.mish1 = Mish()
+        
+        self.conv2 = Conv2d(1024, 1024, kernel_size=(3, 3), stride=(1, 1), bias=False)
+        self.bn2 = BatchNorm2d(1024)
+        self.mish2 = Mish()
+        
+        self.conv3 = Conv2d(1024, input_dim, kernel_size=(1, 1), stride=(1, 1), bias=False)
+        self.bn3 = BatchNorm2d(input_dim)
+        self.mish3 = Mish()
+        
+        layers = (
+            [AdaptiveConcatPool2d(), Mish(), Flatten()]
+            + bn_drop_lin(input_dim * 2, 1024, True, ps, Mish())
+            + bn_drop_lin(1024, out_dim, True, ps)
+        )
+        self.fc = nn.Sequential(*layers)
+        self._init_weight()
+        
+    def _init_weight(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.kaiming_normal_(m.weight)
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1.0)
+                m.bias.data.zero_()
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.mish1(x)
+        
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.mish2(x)
+        
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.mish3(x)
+        
+        x = self.fc(x)
+        
+        return x
