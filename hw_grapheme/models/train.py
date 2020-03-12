@@ -133,8 +133,7 @@ def train_phrase(
         vowel = vowel.long().to("cuda")
         consonant = consonant.long().to("cuda")
 
-        # zero the parameter gradients
-        optimizer.zero_grad()
+
 
         # forward with all root vowel consonant outputs
         # with torch.set_grad_enabled(True):
@@ -221,6 +220,9 @@ def train_phrase(
         else:
             print("ERROR in train phrase extra augmentation.")
 
+            # zero the parameter gradients
+        optimizer.zero_grad()
+
         # backward + optimize
         if mixed_precision:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -246,25 +248,17 @@ def train_phrase(
         )
 
     recorder.evaluate()
-    # root_true, root_predict = recorder.evaluate()
-    # return root_true, root_predict
 
     if wandb_log:
         recorder.wandb_log(phrase="train")
 
     return recorder
 
-
 def validate_phrase(model, valid_dataloader, wandb_log=True, phrase="val"):
     recorder = CallbackRecorder()
 
     # Each epoch has a training and validation phase
     model.eval()  # Set model to evaluate mode
-
-    running_loss = 0.0
-    root_corrects = 0
-    vowel_corrects = 0
-    consonant_corrects = 0
 
     # Iterate over data.
     for images, root, vowel, consonant in tqdm_notebook(valid_dataloader):
@@ -286,14 +280,7 @@ def validate_phrase(model, valid_dataloader, wandb_log=True, phrase="val"):
                 "vowel": {"weight": None, "reduction": "none"},
                 "consonant": {"weight": None, "reduction": "none"},
             }
-            # root_class_weights = class_weights[0]
-            # vowel_class_weights = class_weights[1]
-            # consonant_class_weights = class_weights[2]
-            # loss_criteria_paras = {
-            #     "root": {"weight": root_class_weights, "reduction": "mean"},
-            #     "vowel": {"weight": vowel_class_weights, "reduction": "mean"},
-            #     "consonant": {"weight": consonant_class_weights, "reduction": "mean"},
-            # }
+
             loss = no_extra_augmentation_criterion(
                 root_logit,
                 vowel_logit,
@@ -462,10 +449,4 @@ def train_model(
             time_elapsed // 60, time_elapsed % 60
         )
     )
-    # print("Best Combnied Acc: {:4f}".format(best_acc))
-
     return export_logger.callbacks
-
-    ## load best model weights
-    # model.load_state_dict(best_model_wts)
-    # return best_model_wts

@@ -66,11 +66,6 @@ class CallbackRecorder:
         root_acc = (self.root_corrects.double() / self.data_count).item()
         vowel_acc = (self.vowel_corrects.double() / self.data_count).item()
         consonant_acc = (self.consonant_corrects.double() / self.data_count).item()
-        # print("root_acc: ", root_acc)
-        # print("type(root_acc): ", type(root_acc))
-        # print("vowel_acc: ", vowel_acc)
-        # print("consonant_acc: ", consonant_acc)
-
         combined_acc = np.average(
             [root_acc, vowel_acc, consonant_acc], weights=[2, 1, 1]
         )
@@ -99,8 +94,6 @@ class CallbackRecorder:
         consonant_recall = recall_score(
             self.consonant_true, self.consonant_predict, average="macro"
         )
-
-        # print("root_recall: ", root_recall)
         combined_recall = np.average(
             [root_recall, vowel_recall, consonant_recall], weights=[2, 1, 1]
         )

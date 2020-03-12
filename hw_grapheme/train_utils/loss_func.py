@@ -56,17 +56,6 @@ def ohem_loss(cls_pred, cls_target, ohem_rate):
     cls_loss = ohem_cls_loss.sum() / keep_num
     return cls_loss
 
-
-# def ohem_criterion(preds1, preds2, preds3, targets, ohem_rate, head_weights=[0.5, 0.25, 0.25]):
-#     targets1, targets2, targets3 = targets[0], targets[1], targets[2]
-
-#     l1 = ohem_loss(preds1, targets1, ohem_rate)
-#     l2 = ohem_loss(preds2, targets2, ohem_rate)
-#     l3 = ohem_loss(preds3, targets3, ohem_rate)
-
-#     return combine_loss(l1, l2, l3, head_weights)
-
-
 def no_extra_augmentation_criterion(
     preds1,
     preds2,
@@ -108,9 +97,6 @@ def cutmix_criterion(
         targets[6],
     )
 
-    # root_criterion = loss_criteria()
-    # vowel_criterion = loss_criteria(**loss_criteria_paras["vowel"])
-    # consonant_criterion = loss_criteria(**loss_criteria_paras["consonant"])
 
     root_arg = loss_criteria_paras["root"]
     vowel_arg = loss_criteria_paras["vowel"]
@@ -129,7 +115,6 @@ def cutmix_criterion(
     l3 = consonant_unshuffle + consonant_shuffle
        
     return combine_loss(l1, l2, l3, head_weights).mean()
-
 
 def mixup_criterion(
     preds1,
@@ -167,7 +152,6 @@ def mixup_criterion(
     l3 = consonant_unshuffle + consonant_shuffle
 
     return combine_loss(l1, l2, l3, head_weights).mean()
-
 
 def lin_comb(a, b, t):
     return t * a + (1 - t) * b
