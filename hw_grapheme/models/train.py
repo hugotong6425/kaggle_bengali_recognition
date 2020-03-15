@@ -6,9 +6,9 @@ import wandb
 import numpy as np
 import pandas as pd
 
-from apex import amp
+# from apex import amp
 from tqdm import tqdm_notebook
-
+from torch.nn.utils import clip_grad_norm_
 from hw_grapheme.callbacks.CallbackRecorder import CallbackRecorder
 from hw_grapheme.callbacks.ExportLogger import ExportLogger
 from hw_grapheme.train_utils.loss_func import (
@@ -39,6 +39,7 @@ def rand_bbox(size, lam):
 
 
 def cutmix(data, targets1, targets2, targets3, alpha):
+    alpha=1
     indices = torch.randperm(data.size(0))
     shuffled_data = data[indices]
     shuffled_targets1 = targets1[indices]
@@ -109,9 +110,7 @@ def train_phrase(
         vowel = vowel.long().to("cuda")
         consonant = consonant.long().to("cuda")
 
-        # zero the parameter gradients
-        optimizer.zero_grad()
-
+      
         # forward with all root vowel consonant outputs
         # with torch.set_grad_enabled(True):
         train_method_choice_list = ["mixup", "cutmix", "cross_entropy"]
@@ -151,17 +150,18 @@ def train_phrase(
                 head_weights=head_weights,
             )
 
+        # zero the parameter gradients
+        optimizer.zero_grad()
         # backward + optimize
         if mixed_precision:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
+            clip_grad_norm_(amp.master_params(optimizer), 0.25)
         else:
             loss.backward()
+            clip_grad_norm_(model.parameters(), 0.25)
 
         optimizer.step()
-        if start_swa and i % 5 == 0:
-            optimizer.update_swa()
-            print('updating weight')
 
         recorder.update(
             loss,
@@ -296,7 +296,7 @@ def train_model(
         # SWA
         
         if swa:
-            if num_epochs - epoch < 20 : # Start averaging at last 20 ep
+            if num_epochs - epoch < 30 : # Start averaging at last 20 ep
                 start_swa = True                
             else:
                 start_swa = False
@@ -317,7 +317,9 @@ def train_model(
             start_swa=start_swa,
           
         )
-        
+        if start_swa:
+            optimizer.update_swa()
+            print('updating weight')
         if swa:
             if epoch == (num_epochs -1): # Lastoptimizer. epi()sode, use swa
                 optimizer.swap_swa_sgd()
@@ -334,7 +336,7 @@ def train_model(
 
         # update lr scheduler
         val_loss = valid_recorder.get_loss()
-        if error_plateau_scheduler:
+        if error_plateau_scheduler and not start_swa:
             error_plateau_scheduler.step(val_loss)
         
         # record training statistics into ExportLogger
