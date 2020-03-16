@@ -25,12 +25,13 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm_notebook as tqdm
 
+from sklearn import preprocessing
 
 
 # +
 SIZE = 224
 
-PROCESS_DATA = Path("../data/processed/size_224")
+PROCESS_DATA = Path("../data/processed/size_224_with_last_column")
 RAW_DATA = Path("../data/raw")
 
 PROCESS_DATA.mkdir(exist_ok=True, parents=True)
@@ -86,6 +87,16 @@ def proces_image(images):
     return np.array(processed_image_list)
 
 
+# -
+
+# get a full set of grapheme first
+train_df = pd.read_csv("../data/raw/train.csv")
+grapheme_full = train_df["grapheme"]
+le = preprocessing.LabelEncoder()
+le.fit(grapheme_full)
+
+le.classes_, len(le.classes_)
+
 # +
 train_df = pd.read_csv("../data/raw/train.csv")
 
@@ -102,19 +113,26 @@ for i in range(4):
     merged_df = df.merge(train_df, on="image_id")
 
     image_name = merged_df["image_id"]
-    label = merged_df[["grapheme_root","vowel_diacritic","consonant_diacritic"]].astype(np.uint8)
-    image = merged_df.drop(["image_id", "grapheme_root","vowel_diacritic","consonant_diacritic", "grapheme"], axis=1).values
+    merged_df["grapheme_label"] = le.transform(merged_df["grapheme"])
+    label = merged_df[["grapheme_root","vowel_diacritic","consonant_diacritic", "grapheme_label"]].astype(np.int16)
+    image = merged_df.drop(["image_id", "grapheme_root","vowel_diacritic","consonant_diacritic", "grapheme", "grapheme_label"], axis=1).values
 
     image = proces_image(image)
 
     with open(PROCESS_DATA/process_fn, "wb") as f:
         pickle.dump((image, image_name, label.values), f, protocol=4)
 # +
-pickle_path = "../data/processed/size_128_v2/train_data_0.pickle"
+pickle_path = "../data/processed/size_224_with_last_column/train_data_0.pickle"
 
 with open(pickle_path, "rb") as f:
     train_data = pickle.load(f)
 # -
+
+
+max(train_data[2][:, 3])
+
+
+
 
 
 train_data[0][0].max()

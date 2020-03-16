@@ -135,6 +135,7 @@ def mixup_criterion(
         targets[6],
     )
 
+
     root_arg = loss_criteria_paras["root"]
     vowel_arg = loss_criteria_paras["vowel"]
     consonant_arg = loss_criteria_paras["consonant"]
@@ -150,8 +151,148 @@ def mixup_criterion(
     l1 = root_unshuffle + root_shuffle
     l2 = vowel_unshuffle + vowel_shuffle
     l3 = consonant_unshuffle + consonant_shuffle
-
+       
     return combine_loss(l1, l2, l3, head_weights).mean()
+
+
+def no_extra_augmentation_criterion_with_last_column(
+    preds1,
+    preds2,
+    preds3,
+    preds4,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.25, 0.25, 0.25, 0.25],
+):
+    targets1, targets2, targets3, targets4 = targets[0], targets[1], targets[2], targets[3]
+
+    root_arg = loss_criteria_paras["root"]
+    vowel_arg = loss_criteria_paras["vowel"]
+    consonant_arg = loss_criteria_paras["consonant"]
+    grapheme_arg = loss_criteria_paras["grapheme"]
+
+    l1 = loss_criteria(preds1, targets1, **root_arg)
+    l2 = loss_criteria(preds2, targets2, **vowel_arg)
+    l3 = loss_criteria(preds3, targets3, **consonant_arg)
+    l4 = loss_criteria(preds4, targets4, **grapheme_arg)
+
+    return combine_loss_with_last_column(l1, l2, l3, l4, head_weights).mean()
+
+
+def no_extra_augmentation_criterion_with_last_column_valid_only(
+    preds1,
+    preds2,
+    preds3,
+    preds4,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.25, 0.25, 0.25, 0.25],
+):
+    targets1, targets2, targets3, targets4 = targets[0], targets[1], targets[2], targets[3]
+
+    root_arg = loss_criteria_paras["root"]
+    vowel_arg = loss_criteria_paras["vowel"]
+    consonant_arg = loss_criteria_paras["consonant"]
+    grapheme_arg = loss_criteria_paras["grapheme"]
+
+    l1 = loss_criteria(preds1, targets1, **root_arg)
+    l2 = loss_criteria(preds2, targets2, **vowel_arg)
+    l3 = loss_criteria(preds3, targets3, **consonant_arg)
+    l4 = loss_criteria(preds4, targets4, **grapheme_arg)
+
+    return combine_loss_with_last_column(l1, l2, l3, l4, [0.5, 0.25, 0.25, 0.0]).mean()
+
+
+def cutmix_criterion_with_last_column(
+    preds1,
+    preds2,
+    preds3,
+    preds4,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.25, 0.25, 0.25, 0.25],
+):
+    targets1, shuffle_targets1, targets2, shuffle_targets2, targets3, shuffle_targets3, targets4, shuffle_targets4, lam = (
+        targets[0],
+        targets[1],
+        targets[2],
+        targets[3],
+        targets[4],
+        targets[5],
+        targets[6],
+        targets[7],
+        targets[8],
+    )
+
+    root_arg = loss_criteria_paras["root"]
+    vowel_arg = loss_criteria_paras["vowel"]
+    consonant_arg = loss_criteria_paras["consonant"]
+    grapheme_arg = loss_criteria_paras["grapheme"]
+
+    root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)     
+    vowel_unshuffle = lam * loss_criteria(preds2, targets2, **vowel_arg)
+    consonant_unshuffle = lam * loss_criteria(preds3, targets3, **consonant_arg)
+    grapheme_unshuffle = lam * loss_criteria(preds4, targets4, **grapheme_arg)
+    
+    root_shuffle = (1-lam) * loss_criteria(preds1, shuffle_targets1, **root_arg)
+    vowel_shuffle = (1-lam) * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
+    consonant_shuffle = (1-lam) * loss_criteria(preds3, shuffle_targets3, **consonant_arg)
+    grapheme_shuffle = (1-lam) * loss_criteria(preds4, shuffle_targets4, **grapheme_arg)
+    
+    l1 = root_unshuffle + root_shuffle
+    l2 = vowel_unshuffle + vowel_shuffle
+    l3 = consonant_unshuffle + consonant_shuffle
+    l4 = grapheme_unshuffle + grapheme_shuffle
+       
+    return combine_loss_with_last_column(l1, l2, l3, l4, head_weights).mean()
+
+
+def mixup_criterion_with_last_column(
+    preds1,
+    preds2,
+    preds3,
+    preds4,
+    targets,
+    loss_criteria,
+    loss_criteria_paras,
+    head_weights=[0.25, 0.25, 0.25, 0.25],
+):
+    targets1, shuffle_targets1, targets2, shuffle_targets2, targets3, shuffle_targets3, targets4, shuffle_targets4, lam = (
+        targets[0],
+        targets[1],
+        targets[2],
+        targets[3],
+        targets[4],
+        targets[5],
+        targets[6],
+        targets[7],
+        targets[8],
+    )
+
+    root_arg = loss_criteria_paras["root"]
+    vowel_arg = loss_criteria_paras["vowel"]
+    consonant_arg = loss_criteria_paras["consonant"]
+    grapheme_arg = loss_criteria_paras["grapheme"]
+
+    root_unshuffle = lam * loss_criteria(preds1, targets1, **root_arg)     
+    vowel_unshuffle = lam * loss_criteria(preds2, targets2, **vowel_arg)
+    consonant_unshuffle = lam * loss_criteria(preds3, targets3, **consonant_arg)
+    grapheme_unshuffle = lam * loss_criteria(preds4, targets4, **grapheme_arg)
+    
+    root_shuffle = (1-lam) * loss_criteria(preds1, shuffle_targets1, **root_arg)
+    vowel_shuffle = (1-lam) * loss_criteria(preds2, shuffle_targets2, **vowel_arg)
+    consonant_shuffle = (1-lam) * loss_criteria(preds3, shuffle_targets3, **consonant_arg)
+    grapheme_shuffle = (1-lam) * loss_criteria(preds4, shuffle_targets4, **grapheme_arg)
+    
+    l1 = root_unshuffle + root_shuffle
+    l2 = vowel_unshuffle + vowel_shuffle
+    l3 = consonant_unshuffle + consonant_shuffle
+    l4 = grapheme_unshuffle + grapheme_shuffle
+       
+    return combine_loss_with_last_column(l1, l2, l3, l4, head_weights).mean()
 
 def lin_comb(a, b, t):
     return t * a + (1 - t) * b
@@ -170,6 +311,9 @@ def reduce_loss(loss, reduction="mean"):
 def combine_loss(l1, l2, l3, weights):
     return weights[0] * l1 + weights[1] * l2 + weights[2] * l3
 
+
+def combine_loss_with_last_column(l1, l2, l3, l4, weights):
+    return weights[0] * l1 + weights[1] * l2 + weights[2] * l3 + weights[3] * l4
 
 # class MixUpLoss(nn.Module):
 #     "Adapt the loss function `crit` to go with mixup."

@@ -19,13 +19,12 @@ from sklearn.utils.class_weight import compute_class_weight
 import hydra
 from hydra.experimental import compose, initialize
 
-from hw_grapheme.io.load_data import load_processed_data
-# from hw_grapheme.model_archs.se_resnext import se_resnext50
-from hw_grapheme.model_archs.pretrain_model_arch import se_resnext101_pretrained
-from hw_grapheme.model_archs.head import Head_1fc, Head_3fc
-from hw_grapheme.models.train import train_model
-from hw_grapheme.train_utils.create_dataloader import create_dataloaders_train
-from hw_grapheme.train_utils.train_test_split import stratified_split_kfold
+from hw_grapheme.io.load_data import load_processed_data_with_last_column
+from hw_grapheme.model_archs.pretrain_model_arch import se_resnext101_pretrained_with_last_column
+from hw_grapheme.model_archs.head import Head_1fc
+from hw_grapheme.models.train_with_last_column import train_model
+from hw_grapheme.train_utils.create_dataloader_with_last_column import create_dataloaders_train
+from hw_grapheme.train_utils.train_test_split import stratified_split_kfold_with_last_column
 from omegaconf import DictConfig
 from tqdm.notebook import tqdm
 
@@ -66,7 +65,7 @@ pickle_paths = [
     DATA_PATH/"train_data_3.pickle",
 ]
 
-image_data, name_data, label_data = load_processed_data(
+image_data, name_data, label_data = load_processed_data_with_last_column(
     pickle_paths, image_size=224)
 
 # # +
@@ -74,7 +73,7 @@ image_data, name_data, label_data = load_processed_data(
 n_splits = cfg.n_splits
 random_speed = cfg.random_seed
 
-train_idx_list, test_idx_list = stratified_split_kfold(
+train_idx_list, test_idx_list = stratified_split_kfold_with_last_column(
     image_data, label_data, n_splits, random_seed
 )
 
@@ -153,6 +152,7 @@ if is_weighted_class_loss:
     root_label = label_data[:, 0]
     vowel_label = label_data[:, 1]
     consonant_label = label_data[:, 2]
+    grapheme_label = label_data[:, 3]
 
     class_weight = "balanced"
 
@@ -162,15 +162,31 @@ if is_weighted_class_loss:
         class_weight, np.unique(vowel_label), vowel_label)
     consonant_cls_weight = compute_class_weight(
         class_weight, np.unique(consonant_label), consonant_label)
+    grapheme_cls_weight = compute_class_weight(
+        class_weight, np.unique(grapheme_label), grapheme_label)
 
     class_weights = [
         torch.Tensor(root_cls_weight).cuda(),
         torch.Tensor(vowel_cls_weight).cuda(),
         torch.Tensor(consonant_cls_weight).cuda(),
+        torch.Tensor(grapheme_cls_weight).cuda(),
     ]
 else:
     class_weights = None
+# -
 
+
+label_data[:, 0], len(label_data[:, 0]), max(label_data[:, 0])
+
+label_data[:, 1], len(label_data[:, 1]), max(label_data[:, 1])
+
+label_data[:, 2], len(label_data[:, 2]), max(label_data[:, 2])
+
+label_data[:, 3], len(label_data[:, 3]), max(label_data[:, 3])
+
+class_weights
+
+len(class_weights[3])
 
 # +
 
@@ -178,7 +194,7 @@ else:
 
 for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     # skip unwanted fold
-    if i not in [2]:
+    if i not in [3]:
         continue
 
     print(f"Training fold {i}")

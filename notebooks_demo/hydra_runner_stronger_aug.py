@@ -20,7 +20,7 @@ import hydra
 from hydra.experimental import compose, initialize
 
 from hw_grapheme.io.load_data import load_processed_data
-# from hw_grapheme.model_archs.se_resnext import se_resnext50
+from hw_grapheme.model_archs.se_resnext import se_resnext50
 from hw_grapheme.model_archs.pretrain_model_arch import se_resnext101_pretrained
 from hw_grapheme.model_archs.head import Head_1fc, Head_3fc
 from hw_grapheme.models.train import train_model
@@ -33,7 +33,7 @@ initialize(
     config_dir="configs", strict=True,
 )
 
-EXP_NAME = "full_224"
+EXP_NAME = "strong_augmentation_se_resnext101"
 MACHINE = "2080ti"
 
 overrides = [f"exp_name={EXP_NAME}", f"machine={MACHINE}"]
@@ -61,9 +61,9 @@ random_seed = cfg.random_seed
 pickle_paths = [
     #     DATA_PATH/"sample.pickle",
     DATA_PATH/"train_data_0.pickle",
-    DATA_PATH/"train_data_1.pickle",
-    DATA_PATH/"train_data_2.pickle",
-    DATA_PATH/"train_data_3.pickle",
+    #     DATA_PATH/"train_data_1.pickle",
+    #     DATA_PATH/"train_data_2.pickle",
+    #     DATA_PATH/"train_data_3.pickle",
 ]
 
 image_data, name_data, label_data = load_processed_data(
@@ -99,24 +99,31 @@ rotate = cfg.data_transforms.rotate
 scale = cfg.data_transforms.scale
 p_affine = cfg.data_transforms.p_affine
 shear = cfg.data_transforms.shear
+
+####### changed
 data_transforms = {
     'train': transforms.Compose([
         transforms.ToPILImage(),
         transforms.RandomApply(
-            [transforms.RandomAffine(degrees=rotate, scale=tuple(scale))],
+            [transforms.RandomAffine(degrees=0.15, scale=(1, 1.15), shear=0.2)],
             p=p_affine,
         ),
-        transforms.Grayscale(num_output_channels=3),
+        transforms.RandomApply(
+            [transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0, hue=0)],
+            p=0.75,
+        ),
+        # transforms.Grayscale(num_output_channels=3),
         transforms.ToTensor(),
         transforms.Normalize([0.0692], [0.2051]),
     ]),
     'val': transforms.Compose([
         transforms.ToPILImage(),
-        transforms.Grayscale(num_output_channels=3),
+        # transforms.Grayscale(num_output_channels=3),
         transforms.ToTensor(),
         transforms.Normalize([0.0692], [0.2051])
     ]),
 }
+####### changed
 
 swa = cfg.swa
 
@@ -130,8 +137,6 @@ epoch_scheduler_func = eval(cfg.epoch_scheduler_func)
 epoch_scheduler_func_para = cfg.epoch_scheduler_func_para
 error_plateau_scheduler_func = eval(cfg.error_plateau_scheduler_func)
 error_plateau_scheduler_func_para = cfg.error_plateau_scheduler_func_para
-batch_scheduler_func = eval(cfg.batch_scheduler_func)
-batch_scheduler_func_para = cfg.batch_scheduler_func_para
 
 # prob. of using ["mixup", "cutmix", "cross_entropy"] loss
 mixup_alpha = cfg.mixup_alpha
@@ -171,14 +176,11 @@ if is_weighted_class_loss:
 else:
     class_weights = None
 
-
-# +
-
 # # Training
 
 for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     # skip unwanted fold
-    if i not in [2]:
+    if i not in [0]:
         continue
 
     print(f"Training fold {i}")
@@ -221,19 +223,13 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     else:
         error_plateau_scheduler = None
 
-    if batch_scheduler_func:
-        batch_scheduler = batch_scheduler_func(
-        optimizer_ft, **batch_scheduler_func_para)
-    else:
-        batch_scheduler = None
-    
     # callbacks = {}
     if save_dir:
         full_save_dir = os.path.join(save_dir, f"fold_{i}")
     else:
         full_save_dir = None
 
-    # wandb.init(name=cfg.exp_name, project=cfg.project,config=cfg)
+    wandb.init(name=cfg.exp_name, project=cfg.project,config=cfg)
     # Training
     train_input_args = {
         "model": model,
@@ -251,9 +247,8 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
         "epoch_scheduler": epoch_scheduler,
         "error_plateau_scheduler": error_plateau_scheduler,
         "save_dir": full_save_dir,
-        "wandb_log": False,
+        "wandb_log": wandb_log,
         "swa": swa,
-        "batch_scheduler":batch_scheduler
     }
 
     callbacks = train_model(**train_input_args)

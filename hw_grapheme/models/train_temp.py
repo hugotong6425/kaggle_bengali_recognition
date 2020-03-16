@@ -10,8 +10,6 @@ from torch import nn
 import torch.nn.functional as F
 
 from tqdm import tqdm_notebook
-from torch.nn.utils import clip_grad_norm_
-
 
 from hw_grapheme.callbacks.CallbackRecorder import CallbackRecorder
 from hw_grapheme.callbacks.ExportLogger import ExportLogger
@@ -28,7 +26,7 @@ device = "cuda"
 def rand_bbox(size, lam):
     W = size[2]
     H = size[3]
-    cut_rat = min(np.sqrt(1.0 - lam), 0.2)
+    cut_rat = np.sqrt(1.0 - lam)
     cut_w = np.int(W * cut_rat)
     cut_h = np.int(H * cut_rat)
 
@@ -222,17 +220,15 @@ def train_phrase(
         else:
             print("ERROR in train phrase extra augmentation.")
 
-        # zero the parameter gradients
+            # zero the parameter gradients
         optimizer.zero_grad()
 
         # backward + optimize
         if mixed_precision:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
                 scaled_loss.backward()
-            clip_grad_norm_(amp.master_params(optimizer), 0.25)
         else:
             loss.backward()
-            clip_grad_norm_(model.parameters(), 0.25)
 
         # Step LR scheudler before loss
         if batch_scheduler:
@@ -379,7 +375,7 @@ def train_model(
         "no_aug_train_combined_recall",
     ]
     export_logger.define_field_to_record(list_of_field)
-    
+
     for epoch in range(num_epochs):
         print("Epoch {}/{}".format(epoch, num_epochs - 1))
         print("-" * 10)

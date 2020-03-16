@@ -2,8 +2,8 @@ defaults:
   - machine: 2080ti
 
 # Directory Config
-DATA_PATH: /home/yani/hugo/kaggle/kaggle_bengali_recognition/data/processed/size_224_with_last_column
-save_dir: /home/yani/hugo/kaggle/kaggle_bengali_recognition/models/size_224_with_last_column
+DATA_PATH: /home/yani/hugo/kaggle/kaggle_bengali_recognition/data/processed/size_224_v3
+save_dir: /home/yani/hugo/kaggle/kaggle_bengali_recognition/models/head3fc
 
 wandb_log: True
 exp_name: base
@@ -16,7 +16,7 @@ swa: True
 is_weighted_class_loss: True
 
 # prob. of using ["cross_entropy", "ohem"] loss
-train_loss_prob_2: [1.0, 0.0]
+train_loss_prob_2: [0.5, 0.5]
 # prob. of using extra img augmentation ["mixup", "cutmix", "none"]
 extra_augmentation_prob: [0.5, 0.5, 0.0]
 # for mixup/cutmix only
@@ -24,15 +24,15 @@ mixup_alpha: 0.4
 cutmix_alpha: 0.4
 # for ohem only
 ohem_rate: 0.7
-# weighted loss of [root, vowel, consonant, grapheme]
-head_weights: [0.35, 0.2, 0.2, 0.25]
+# weighted loss of [root, vowel, consonant]
+head_weights: [0.5, 0.25, 0.25]
 
-head: Head_1fc
+head: Head_3fc
 batch_scheduler_func: optim.lr_scheduler.CyclicLR
-batch_scheduler_func_para: {"base_lr": 0.001, "max_lr":0.006, "step_size_up":730, "step_size_down":731, "cycle_momentum": False}
+batch_scheduler_func_para: {"base_lr": 0.001, "max_lr":0.006, "step_size_up":314, "cycle_momentum": False}
 optimizer: optim.AdamW
 optimizer_parameter: {"lr": 0.003}
-model_arch: se_resnext101_pretrained_with_last_column
+model_arch: se_resnext101_pretrained
 model_parameter: {}
 error_plateau_scheduler_func: None
 error_plateau_scheduler_func_para: {}
@@ -49,4 +49,4 @@ random_seed: 2020
 num_workers: 2
 pin_memory: True
 n_splits: 5
-n_epoch: 100
+n_epoch: 80

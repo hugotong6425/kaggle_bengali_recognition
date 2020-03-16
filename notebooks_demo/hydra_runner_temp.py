@@ -130,8 +130,6 @@ epoch_scheduler_func = eval(cfg.epoch_scheduler_func)
 epoch_scheduler_func_para = cfg.epoch_scheduler_func_para
 error_plateau_scheduler_func = eval(cfg.error_plateau_scheduler_func)
 error_plateau_scheduler_func_para = cfg.error_plateau_scheduler_func_para
-batch_scheduler_func = eval(cfg.batch_scheduler_func)
-batch_scheduler_func_para = cfg.batch_scheduler_func_para
 
 # prob. of using ["mixup", "cutmix", "cross_entropy"] loss
 mixup_alpha = cfg.mixup_alpha
@@ -178,7 +176,7 @@ else:
 
 for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     # skip unwanted fold
-    if i not in [2]:
+    if i not in [0]:
         continue
 
     print(f"Training fold {i}")
@@ -221,19 +219,13 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
     else:
         error_plateau_scheduler = None
 
-    if batch_scheduler_func:
-        batch_scheduler = batch_scheduler_func(
-        optimizer_ft, **batch_scheduler_func_para)
-    else:
-        batch_scheduler = None
-    
     # callbacks = {}
     if save_dir:
         full_save_dir = os.path.join(save_dir, f"fold_{i}")
     else:
         full_save_dir = None
 
-    # wandb.init(name=cfg.exp_name, project=cfg.project,config=cfg)
+    wandb.init(name=cfg.exp_name, project=cfg.project,config=cfg)
     # Training
     train_input_args = {
         "model": model,
@@ -251,9 +243,8 @@ for i, (train_idx, valid_idx) in enumerate(zip(train_idx_list, test_idx_list)):
         "epoch_scheduler": epoch_scheduler,
         "error_plateau_scheduler": error_plateau_scheduler,
         "save_dir": full_save_dir,
-        "wandb_log": False,
+        "wandb_log": wandb_log,
         "swa": swa,
-        "batch_scheduler":batch_scheduler
     }
 
     callbacks = train_model(**train_input_args)

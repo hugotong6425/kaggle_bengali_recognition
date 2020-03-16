@@ -16,9 +16,10 @@ from torch.nn.utils import clip_grad_norm_
 from hw_grapheme.callbacks.CallbackRecorder import CallbackRecorder
 from hw_grapheme.callbacks.ExportLogger import ExportLogger
 from hw_grapheme.train_utils.loss_func import (
-    no_extra_augmentation_criterion,
-    cutmix_criterion,
-    mixup_criterion,
+    no_extra_augmentation_criterion_with_last_column,
+    no_extra_augmentation_criterion_with_last_column_valid_only,
+    cutmix_criterion_with_last_column,
+    mixup_criterion_with_last_column,
     ohem_loss,
 )
 
@@ -44,13 +45,14 @@ def rand_bbox(size, lam):
     return bbx1, bby1, bbx2, bby2
 
 
-def cutmix_data(data, targets1, targets2, targets3, alpha):
+def cutmix_data(data, targets1, targets2, targets3, targets4, alpha):
     size = data.size(0)
     indices = torch.randperm(size)
     shuffled_data = data[indices]
     shuffled_targets1 = targets1[indices]
     shuffled_targets2 = targets2[indices]
     shuffled_targets3 = targets3[indices]
+    shuffled_targets4 = targets4[indices]
 
     torch_beta = torch.distributions.Beta(alpha, alpha)
     lam = torch_beta.sample_n(size)
@@ -73,18 +75,21 @@ def cutmix_data(data, targets1, targets2, targets3, alpha):
         shuffled_targets2,
         targets3,
         shuffled_targets3,
+        targets4,
+        shuffled_targets4,
         lam,
     ]
     return data, targets
 
 
-def mixup_data(data, targets1, targets2, targets3, alpha):
+def mixup_data(data, targets1, targets2, targets3, targets4, alpha):
     size = data.size(0)
     indices = torch.randperm(size)
     shuffled_data = data[indices]
     shuffled_targets1 = targets1[indices]
     shuffled_targets2 = targets2[indices]
     shuffled_targets3 = targets3[indices]
+    shuffled_targets4 = targets4[indices]
 
     torch_beta = torch.distributions.Beta(alpha, alpha)
     lam = torch_beta.sample_n(size)
@@ -99,6 +104,8 @@ def mixup_data(data, targets1, targets2, targets3, alpha):
         shuffled_targets2,
         targets3,
         shuffled_targets3,
+        targets4,
+        shuffled_targets4,
         lam,
     ]
     return data, targets
@@ -127,15 +134,14 @@ def train_phrase(
     model.train()  # Set model to training mode
 
     # Iterate over data.
-    for i, (images, root, vowel, consonant) in enumerate(
+    for i, (images, root, vowel, consonant, grapheme) in enumerate(
         tqdm_notebook(train_dataloader)
     ):
         images = images.to("cuda")
         root = root.long().to("cuda")
         vowel = vowel.long().to("cuda")
         consonant = consonant.long().to("cuda")
-
-
+        grapheme = grapheme.long().to("cuda")
 
         # forward with all root vowel consonant outputs
         # with torch.set_grad_enabled(True):
@@ -154,16 +160,19 @@ def train_phrase(
                 root_class_weights = class_weights[0]
                 vowel_class_weights = class_weights[1]
                 consonant_class_weights = class_weights[2]
+                grapheme_class_weights = class_weights[3]
             else:
                 root_class_weights = None
                 vowel_class_weights = None
                 consonant_class_weights = None
+                grapheme_class_weights = None
 
             # store the args pass into loas_criteria for each head
             loss_criteria_paras = {
                 "root": {"weight": root_class_weights, "reduction": "none"},
                 "vowel": {"weight": vowel_class_weights, "reduction": "none"},
                 "consonant": {"weight": consonant_class_weights, "reduction": "none"},
+                "grapheme": {"weight": grapheme_class_weights, "reduction": "none"},
             }
         elif train_loss_2 == ["ohem"]:
             loss_criteria = ohem_loss
@@ -173,6 +182,7 @@ def train_phrase(
                 "root": {"ohem_rate": ohem_rate},
                 "vowel": {"ohem_rate": ohem_rate},
                 "consonant": {"ohem_rate": ohem_rate},
+                "grapheme": {"ohem_rate": ohem_rate},
             }
         else:
             print("ERROR in train phrase train_loss_2.")
@@ -184,36 +194,39 @@ def train_phrase(
         )
 
         if extra_augmentation == ["mixup"]:
-            images, targets = mixup_data(images, root, vowel, consonant, mixup_alpha)
-            root_logit, vowel_logit, consonant_logit = model(images)
-            loss = mixup_criterion(
+            images, targets = mixup_data(images, root, vowel, consonant, grapheme, mixup_alpha)
+            root_logit, vowel_logit, consonant_logit, grapheme_logit = model(images)
+            loss = mixup_criterion_with_last_column(
                 root_logit,
                 vowel_logit,
                 consonant_logit,
+                grapheme_logit,
                 targets,
                 loss_criteria,
                 loss_criteria_paras,
                 head_weights=head_weights,
             )
         elif extra_augmentation == ["cutmix"]:
-            images, targets = cutmix_data(images, root, vowel, consonant, cutmix_alpha)
-            root_logit, vowel_logit, consonant_logit = model(images)
-            loss = cutmix_criterion(
+            images, targets = cutmix_data(images, root, vowel, consonant, grapheme, cutmix_alpha)
+            root_logit, vowel_logit, consonant_logit, grapheme_logit = model(images)
+            loss = cutmix_criterion_with_last_column(
                 root_logit,
                 vowel_logit,
                 consonant_logit,
+                grapheme_logit,
                 targets,
                 loss_criteria,
                 loss_criteria_paras,
                 head_weights=head_weights,
             )
         elif extra_augmentation == ["none"]:
-            root_logit, vowel_logit, consonant_logit = model(images)
-            targets = (root, vowel, consonant)
-            loss = no_extra_augmentation_criterion(
+            root_logit, vowel_logit, consonant_logit, grapheme_logit = model(images)
+            targets = (root, vowel, consonant, grapheme)
+            loss = no_extra_augmentation_criterion_with_last_column(
                 root_logit,
                 vowel_logit,
                 consonant_logit,
+                grapheme_logit,
                 targets,
                 loss_criteria,
                 loss_criteria_paras,
@@ -265,17 +278,18 @@ def validate_phrase(model, valid_dataloader, wandb_log=True, phrase="val"):
     model.eval()  # Set model to evaluate mode
 
     # Iterate over data.
-    for images, root, vowel, consonant in tqdm_notebook(valid_dataloader):
+    for images, root, vowel, consonant, grapheme in tqdm_notebook(valid_dataloader):
         images = images.to("cuda")
         root = root.long().to("cuda")
         vowel = vowel.long().to("cuda")
         consonant = consonant.long().to("cuda")
+        grapheme = grapheme.long().to("cuda")
 
         # forward
         # track history if only in train
         with torch.no_grad():
-            root_logit, vowel_logit, consonant_logit = model(images)
-            targets = (root, vowel, consonant)
+            root_logit, vowel_logit, consonant_logit, grapheme_logit = model(images)
+            targets = (root, vowel, consonant, grapheme)
 
             # default use class weighted cross entropy loss for val set
             loss_criteria = F.cross_entropy
@@ -283,16 +297,18 @@ def validate_phrase(model, valid_dataloader, wandb_log=True, phrase="val"):
                 "root": {"weight": None, "reduction": "none"},
                 "vowel": {"weight": None, "reduction": "none"},
                 "consonant": {"weight": None, "reduction": "none"},
+                "grapheme": {"weight": None, "reduction": "none"},
             }
 
-            loss = no_extra_augmentation_criterion(
+            loss = no_extra_augmentation_criterion_with_last_column_valid_only(
                 root_logit,
                 vowel_logit,
                 consonant_logit,
+                grapheme_logit,
                 targets,
                 loss_criteria,
                 loss_criteria_paras,
-                head_weights=[0.5, 0.25, 0.25],
+                head_weights=[0.5, 0.25, 0.25, 0.0],
             )
 
         recorder.update(
